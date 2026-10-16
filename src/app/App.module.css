@@ -1,0 +1,390 @@
+.app {
+  height: 100dvh;
+  min-height: 440px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--background);
+  transition: background 0.7s;
+}
+.desktop {
+  --titlebar-height: 38px;
+}
+.workspace {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  position: relative;
+}
+.sidebar {
+  width: 234px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 30px 18px 16px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 9px 42px;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--text);
+  font-size: 26px;
+  letter-spacing: -1.2px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.brandDot {
+  color: var(--primary);
+}
+.brandSymbol {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  color: var(--primary);
+}
+.brandSymbol > svg:first-child {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+}
+.brandSymbol > svg:last-child {
+  position: relative;
+  color: var(--on-primary);
+  width: 23px;
+  height: 23px;
+}
+.sidebarBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.sidebarBottom {
+  padding-top: 18px;
+}
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 30px 0 12px;
+}
+.topbar {
+  height: 90px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.hero {
+  height: 242px;
+  min-height: 242px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+  border-radius: 32px;
+  background: var(--hero);
+  margin-bottom: 27px;
+  transition: background 0.7s;
+}
+.heroCopy {
+  position: relative;
+  z-index: 2;
+  padding: 25px 34px;
+}
+.heroCopy h1 {
+  margin: 12px 0 10px;
+  font-size: clamp(27px, 3vw, 42px);
+  line-height: 1.12;
+  font-weight: 540;
+  letter-spacing: -1.7px;
+}
+.heroCopy h1 span {
+  color: var(--primary);
+}
+.heroCopy p {
+  margin: 0 0 19px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.heroArt {
+  width: 40%;
+  height: 100%;
+  position: relative;
+  flex-shrink: 0;
+}
+.artOrbit {
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  border: 1px solid var(--hero-line);
+  border-radius: 50%;
+  top: -7px;
+  right: 20px;
+  transform: rotate(-30deg) scaleX(1.2);
+}
+.heroPetal {
+  position: absolute;
+  height: 185px;
+  width: 185px;
+  right: 84px;
+  top: 22px;
+  display: grid;
+  place-items: center;
+  transform: rotate(-13deg);
+}
+.heroPetal > svg:first-child {
+  position: absolute;
+  height: 185px;
+  width: 185px;
+  color: var(--primary);
+}
+.heroPetal > svg:last-child {
+  position: relative;
+  color: var(--on-primary);
+}
+.artWave {
+  position: absolute;
+  width: 145px;
+  height: 105px;
+  border-radius: 60px 60px 22px 22px;
+  background: var(--hero-wave);
+  bottom: 22px;
+  right: -5px;
+  overflow: hidden;
+  transform: rotate(16deg);
+}
+.artWave svg {
+  width: 170px;
+  height: 110px;
+  transform: translate(-12px, 10px);
+}
+.artWave path {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 8;
+  opacity: 0.6;
+}
+.artSpark {
+  position: absolute;
+  color: var(--primary);
+  font-size: 56px;
+  top: 12px;
+  right: 13px;
+  font-weight: 300;
+}
+.heroArtLabel {
+  position: absolute;
+  bottom: 20px;
+  right: 158px;
+  font-size: 8px;
+  letter-spacing: 2.1px;
+  color: var(--text-muted);
+  transform: rotate(-8deg);
+  white-space: nowrap;
+}
+.library {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+@media (min-width: 1500px) {
+  .main {
+    padding-right: 42px;
+    padding-left: 24px;
+  }
+  .sidebar {
+    width: 248px;
+  }
+  .hero {
+    height: 260px;
+    min-height: 260px;
+  }
+  .heroArt {
+    width: 45%;
+  }
+  .heroPetal {
+    right: 150px;
+  }
+  .artWave {
+    right: 45px;
+  }
+  .artOrbit {
+    right: 90px;
+  }
+}
+@media (max-height: 780px) and (min-width: 761px) {
+  .hero {
+    height: 207px;
+    min-height: 207px;
+    margin-bottom: 20px;
+  }
+  .heroCopy {
+    padding-block: 18px;
+  }
+  .heroCopy h1 {
+    font-size: 34px;
+    margin-top: 10px;
+  }
+  .heroCopy p {
+    margin-bottom: 13px;
+  }
+  .heroPetal {
+    top: 9px;
+    width: 165px;
+    height: 165px;
+    right: 70px;
+  }
+  .heroPetal > svg:first-child {
+    width: 165px;
+    height: 165px;
+  }
+  .artOrbit {
+    height: 220px;
+    width: 220px;
+  }
+}
+@media (max-width: 1100px) {
+  .sidebar {
+    width: 210px;
+    padding-inline: 12px;
+  }
+  .main {
+    padding-right: 20px;
+    padding-left: 6px;
+  }
+  .heroArt {
+    width: 34%;
+  }
+  .heroPetal {
+    right: 35px;
+  }
+  .heroArtLabel {
+    right: 80px;
+  }
+  .heroCopy {
+    padding-left: 27px;
+  }
+  .artSpark {
+    right: -5px;
+  }
+}
+@media (max-width: 900px) {
+  .sidebar {
+    width: 185px;
+    padding-inline: 9px;
+  }
+  .brand {
+    font-size: 23px;
+    margin-inline: 5px;
+  }
+  .heroCopy h1 {
+    font-size: 32px;
+  }
+  .heroArt {
+    width: 30%;
+  }
+  .heroPetal {
+    right: 9px;
+    width: 135px;
+    height: 135px;
+    top: 36px;
+  }
+  .heroPetal > svg:first-child {
+    width: 135px;
+    height: 135px;
+  }
+  .heroArtLabel {
+    display: none;
+  }
+  .artWave {
+    width: 100px;
+    right: -30px;
+  }
+  .heroCopy {
+    padding-left: 23px;
+  }
+}
+@media (max-width: 760px) {
+  .sidebar {
+    width: 72px;
+    padding: 24px 9px 12px;
+  }
+  .brand {
+    justify-content: center;
+    margin: 0 0 30px;
+  }
+  .brand > span:last-child {
+    display: none;
+  }
+  .sidebarBody {
+    overflow: visible;
+  }
+  .main {
+    padding: 0 15px 0 4px;
+  }
+  .hero {
+    min-height: 200px;
+    height: 200px;
+    border-radius: 25px;
+    margin-bottom: 20px;
+  }
+  .heroCopy {
+    padding: 21px;
+  }
+  .heroCopy h1 {
+    font-size: 29px;
+    letter-spacing: -1px;
+  }
+  .heroCopy p {
+    max-width: 190px;
+    font-size: 11px;
+  }
+  .heroArt {
+    width: 20%;
+  }
+  .heroPetal {
+    width: 110px;
+    height: 110px;
+    right: -38px;
+    top: 13px;
+  }
+  .heroPetal > svg:first-child {
+    width: 110px;
+    height: 110px;
+  }
+  .heroPetal > svg:last-child {
+    width: 38px;
+  }
+  .artSpark,
+  .artWave,
+  .artOrbit {
+    display: none;
+  }
+  .topbar {
+    height: 75px;
+  }
+}
+@media (max-width: 480px) {
+  .heroArt {
+    display: none;
+  }
+  .heroCopy h1 {
+    font-size: 28px;
+  }
+  .heroCopy {
+    padding: 20px;
+  }
+  .hero {
+    min-height: 205px;
+  }
+}

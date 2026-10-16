@@ -1,0 +1,18 @@
+name: Feature idea
+description: Suggest a small improvement to everyday listening.
+title: '[Idea] '
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What would this make easier?
+      description: Describe the listening task or inconvenience.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: Keep SonoTune's simple, local, lightweight approach in mind.
+    validations:
+      required: true

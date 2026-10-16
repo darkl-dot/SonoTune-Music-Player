@@ -1,0 +1,337 @@
+.home {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  isolation: isolate;
+}
+.scroll {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 3px 18px 0;
+  scrollbar-width: thin;
+}
+.backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.floating {
+  position: absolute;
+  opacity: 0.12;
+  pointer-events: none;
+  animation: float 48s ease-in-out infinite alternate;
+}
+.flower {
+  width: 146px;
+  height: 146px;
+  left: 8%;
+  bottom: 28px;
+  color: var(--primary-container);
+  transform: rotate(15deg);
+}
+.pebble {
+  width: 164px;
+  height: 164px;
+  right: 28px;
+  top: 44%;
+  color: var(--hero-wave);
+  animation-duration: 57s;
+  animation-delay: -17s;
+  opacity: 0.1;
+}
+.ribbon {
+  width: 180px;
+  height: 125px;
+  left: 43%;
+  bottom: 24px;
+  color: var(--primary);
+  opacity: 0.035;
+  animation-duration: 63s;
+  animation-delay: -25s;
+}
+.star {
+  width: 72px;
+  height: 72px;
+  right: 21%;
+  top: 42%;
+  color: var(--primary-container);
+  opacity: 0.13;
+  animation-duration: 47s;
+  animation-delay: -12s;
+}
+.highlights {
+  position: relative;
+  animation: appear 0.5s ease both;
+}
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 3px 4px 15px;
+  color: var(--primary);
+  gap: 10px;
+}
+.heading > span {
+  font-size: 11px;
+  letter-spacing: 1.3px;
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.card {
+  position: relative;
+  height: clamp(205px, 19vw, 270px);
+  min-width: 0;
+  border-radius: 27px;
+  overflow: hidden;
+  background: var(--primary-container);
+  isolation: isolate;
+}
+.cardAction {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  color: #fff;
+  border-radius: inherit;
+  background: none;
+  overflow: hidden;
+}
+.cardAction:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: -4px;
+}
+.cardMedia {
+  position: absolute;
+  inset: 0;
+  animation: cover-in 0.8s ease both;
+}
+.cardMedia > :global(.artwork) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  max-width: none;
+  transform: scale(1.025);
+  transition: transform 1.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.cardAction:hover .cardMedia > :global(.artwork),
+.cardAction:focus-visible .cardMedia > :global(.artwork) {
+  transform: scale(1.095);
+}
+.shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(15, 13, 20, 0.3),
+    rgba(15, 13, 20, 0.05) 30%,
+    rgba(15, 13, 20, 0.83)
+  );
+}
+.cardLabel {
+  position: absolute;
+  left: 20px;
+  right: 46px;
+  top: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.94);
+}
+.cardLabel svg {
+  margin-top: 1px;
+}
+.cardCopy {
+  position: absolute;
+  left: 20px;
+  right: 60px;
+  bottom: 23px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cardCopy strong {
+  font-size: clamp(17px, 1.6vw, 25px);
+  font-weight: 750;
+  line-height: 1.18;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cardHint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.92);
+  line-height: 1.4;
+}
+.cardArtist {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.94);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cardPlay {
+  position: absolute;
+  right: 17px;
+  bottom: 24px;
+  width: 36px;
+  height: 39px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.93);
+  color: #25202d;
+  transition:
+    transform 0.3s,
+    border-radius 0.3s;
+}
+.cardAction:hover .cardPlay {
+  transform: translateY(-3px);
+  border-radius: 18px;
+}
+.card > .refresh {
+  position: absolute;
+  right: 11px;
+  top: 11px;
+  width: 31px;
+  height: 31px;
+  color: #fff;
+  background: rgba(20, 16, 26, 0.22);
+}
+.card > .refresh:hover:not(:disabled) {
+  color: #fff;
+  background: rgba(20, 16, 26, 0.5);
+}
+.empty .cardMedia {
+  opacity: 0.65;
+}
+.empty .cardCopy {
+  right: 54px;
+}
+.empty .cardCopy strong {
+  font-size: 18px;
+}
+.empty .cardHint {
+  font-size: 11px;
+}
+.more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  margin: 25px auto 5px;
+  padding: 13px 20px;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  border-radius: 24px;
+  font-size: 15px;
+  font-weight: 650;
+}
+.more:hover {
+  background: var(--hover);
+}
+.more svg:last-child {
+  transition: transform 0.3s;
+}
+.more:hover svg:last-child {
+  transform: translate(3px, -3px);
+}
+@keyframes float {
+  from {
+    transform: translate3d(0, 0, 0) rotate(-8deg);
+  }
+  to {
+    transform: translate3d(14px, -16px, 0) rotate(10deg);
+  }
+}
+@keyframes appear {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes cover-in {
+  from {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@media (max-width: 1100px) {
+  .cards {
+    gap: 12px;
+  }
+  .cardLabel {
+    left: 15px;
+    top: 17px;
+    font-size: 12px;
+  }
+  .cardCopy {
+    left: 15px;
+    bottom: 20px;
+  }
+  .cardPlay {
+    right: 12px;
+    bottom: 20px;
+  }
+  .card {
+    border-radius: 23px;
+  }
+}
+@media (max-width: 760px) {
+  .cards {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .card {
+    height: 220px;
+  }
+  .cardCopy strong {
+    font-size: 24px;
+  }
+  .cardLabel {
+    font-size: 12px;
+  }
+  .heading > span {
+    font-size: 10px;
+    letter-spacing: 0.7px;
+  }
+  .more {
+    font-size: 13px;
+    padding-inline: 10px;
+    gap: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .floating,
+  .highlights,
+  .cardMedia {
+    animation: none;
+  }
+  .cardMedia > :global(.artwork),
+  .cardPlay,
+  .more svg {
+    transition: none !important;
+    transform: none !important;
+  }
+}

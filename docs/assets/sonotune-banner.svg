@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">SonoTune</title>
+  <desc id="desc">Less noise. More music. A quiet home for your local music, illustrated with soft lilac shapes and flowing waves.</desc>
+  <defs>
+    <clipPath id="frame"><rect width="1200" height="360" rx="36"/></clipPath>
+    <clipPath id="pebble"><path d="M920 234c-32-95 146-129 205-45s21 173-58 171-111-16-147-126Z"/></clipPath>
+  </defs>
+  <g clip-path="url(#frame)">
+    <rect width="1200" height="360" fill="#1d1822"/>
+    <path d="M758-45c90-62 301-55 382 40s60 202-31 271-286 79-365-10S667 17 758-45Z" fill="#30263b"/>
+    <ellipse cx="960" cy="175" rx="194" ry="166" fill="none" stroke="#594461" stroke-width="1.5" transform="rotate(-18 960 175)"/>
+    <path d="M943 68c22-41 45-7 50 18 39-24 60 8 35 39 47 6 48 41 5 56 27 37 3 65-34 43-4 49-41 55-58 11-31 29-60 6-40-31-44-11-43-48 0-57-29-34-7-65 29-44-6-18-3-28 13-35Z" fill="#ceafe4"/>
+    <g stroke="#392742" stroke-width="6" stroke-linecap="round" transform="rotate(-13 962 161)">
+      <path d="M933 152v17m15-35v51m15-64v78m15-63v51m15-35v18"/>
+    </g>
+    <path d="M920 234c-32-95 146-129 205-45s21 173-58 171-111-16-147-126Z" fill="#705262"/>
+    <g clip-path="url(#pebble)" fill="none" stroke="#c1a1cf" stroke-width="9">
+      <path d="M886 192q35-55 70 0t70 0t70 0t70 0M886 225q35-55 70 0t70 0t70 0t70 0M886 258q35-55 70 0t70 0t70 0t70 0M886 291q35-55 70 0t70 0t70 0t70 0M886 324q35-55 70 0t70 0t70 0t70 0"/>
+    </g>
+    <g stroke="#d8c8e2" stroke-width="2" transform="translate(1117 67)"><path d="M-19 0h38M0-19v38M-14-14l28 28M-14 14l28-28"/></g>
+    <text x="62" y="68" fill="#c9aadd" font-family="Arial, sans-serif" font-size="13" letter-spacing="3">LOCAL MUSIC. YOUR SPACE.</text>
+    <text x="58" y="159" fill="#f2eaf6" font-family="Arial, sans-serif" font-size="76" font-weight="700" letter-spacing="-3">SonoTune<tspan fill="#c9aadd">.</tspan></text>
+    <text x="62" y="218" fill="#f2eaf6" font-family="Arial, sans-serif" font-size="30" letter-spacing="-.7">Less noise. More music.</text>
+    <text x="62" y="257" fill="#bfb0c8" font-family="Arial, sans-serif" font-size="17">A calm, colorful player for the songs you already own.</text>
+    <g transform="translate(62 287)">
+      <rect width="124" height="31" rx="15.5" fill="#403148"/><text x="62" y="21" text-anchor="middle" fill="#e4cfee" font-family="Arial, sans-serif" font-size="12">WINDOWS x64</text>
+      <rect x="134" width="110" height="31" rx="15.5" fill="#302938"/><text x="189" y="21" text-anchor="middle" fill="#d4c4df" font-family="Arial, sans-serif" font-size="12">LOCAL FIRST</text>
+      <rect x="254" width="91" height="31" rx="15.5" fill="#302938"/><text x="299.5" y="21" text-anchor="middle" fill="#d4c4df" font-family="Arial, sans-serif" font-size="12">RU + EN</text>
+    </g>
+  </g>
+</svg>

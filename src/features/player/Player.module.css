@@ -1,0 +1,289 @@
+.player {
+  --player-height: 112px;
+  height: var(--player-height);
+  min-height: var(--player-height);
+  max-height: var(--player-height);
+  flex: 0 0 var(--player-height);
+  padding: 12px 24px;
+  display: grid;
+  grid-template-areas: 'track transport extras';
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 1.45fr) minmax(180px, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+  background: var(--player);
+  border-radius: 28px 28px 0 0;
+  position: relative;
+  z-index: 8;
+  transition: background 0.7s;
+}
+.current {
+  grid-area: track;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 0;
+  gap: 13px;
+}
+.cover {
+  width: 58px;
+  height: 58px;
+  min-width: 58px;
+  border-radius: 17px;
+  flex: 0 0 58px;
+  overflow: hidden;
+}
+/* The size belongs to the frame, so global artwork styles cannot enlarge it. */
+.cover > :global(.artwork) {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+}
+.metadata {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  flex: 1;
+}
+.metadata strong,
+.currentTitle,
+.metadata span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.metadata strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+.currentTitle {
+  border: 0;
+  background: none;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 650;
+}
+.currentTitle:hover {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.metadata span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.transport {
+  grid-area: transport;
+  align-self: stretch;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.controls > .play {
+  width: 46px;
+  height: 46px;
+  background: var(--primary);
+  color: var(--on-primary);
+  border-radius: 17px;
+}
+.controls > .play:hover:not(:disabled) {
+  border-radius: 23px;
+  background: var(--primary);
+  color: var(--on-primary);
+}
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  height: 25px;
+  min-width: 0;
+}
+.progress > span {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  min-width: 26px;
+  flex-shrink: 0;
+}
+.waveSlider {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+}
+.waveSlider input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.waveSlider:focus-within {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+.waveRemainder {
+  height: 3px;
+  border-radius: 2px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 12px;
+  background: var(--outline);
+}
+.waveFill {
+  position: absolute;
+  height: 26px;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  background: var(--player);
+}
+.waveFill svg {
+  height: 26px;
+  width: 600px;
+  max-width: none;
+}
+.waveFill path {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+}
+.moving .waveFill svg {
+  animation: wave-flow 2.4s linear infinite;
+}
+.thumb {
+  position: absolute;
+  top: 5px;
+  width: 4px;
+  height: 17px;
+  background: var(--primary);
+  border-radius: 4px;
+  transform: translateX(-2px);
+  pointer-events: none;
+}
+.extras {
+  grid-area: extras;
+  min-width: 0;
+  min-height: 0;
+  justify-content: flex-end;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.volume {
+  appearance: none;
+  width: 85px;
+  height: 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  margin: 0;
+  min-width: 0;
+  flex-shrink: 1;
+}
+.volume::-webkit-slider-thumb {
+  appearance: none;
+  width: 5px;
+  height: 15px;
+  border-radius: 3px;
+  background: var(--primary);
+}
+.volume::-moz-range-thumb {
+  width: 5px;
+  height: 15px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--primary);
+}
+.divider {
+  height: 23px;
+  width: 1px;
+  flex-shrink: 0;
+  background: var(--outline);
+  margin: 0 8px;
+}
+@keyframes wave-flow {
+  to {
+    transform: translateX(-30px);
+  }
+}
+@media (max-width: 1100px) {
+  .player {
+    gap: 16px;
+    padding-inline: 20px;
+    grid-template-columns: minmax(0, 1fr) minmax(284px, 1.4fr) 170px;
+  }
+  .volume {
+    width: 65px;
+  }
+  .current > button {
+    display: none;
+  }
+  .controls {
+    gap: 8px;
+  }
+  .divider {
+    margin-inline: 2px;
+  }
+}
+@media (max-width: 760px) {
+  .player {
+    --player-height: 168px;
+    grid-template-areas: 'track extras' 'transport transport';
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: 44px minmax(0, 1fr);
+    gap: 8px 12px;
+    padding: 12px 16px;
+  }
+  .current {
+    gap: 9px;
+  }
+  .extras {
+    gap: 5px;
+  }
+  .extras > button {
+    width: 32px;
+    height: 32px;
+  }
+  .divider {
+    display: none;
+  }
+  .volume {
+    width: 60px;
+  }
+  .cover {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    flex-basis: 42px;
+    border-radius: 13px;
+  }
+  .controls {
+    gap: 8px;
+  }
+  .progress {
+    gap: 5px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .moving .waveFill svg {
+    animation: none;
+  }
+}

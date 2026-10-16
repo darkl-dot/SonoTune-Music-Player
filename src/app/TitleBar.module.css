@@ -1,0 +1,73 @@
+.titlebar {
+  height: 38px;
+  flex: 0 0 38px;
+  display: flex;
+  align-items: stretch;
+  background: var(--background);
+  color: var(--text-muted);
+  user-select: none;
+  position: relative;
+  z-index: 70;
+  transition:
+    background 0.7s,
+    color 0.2s;
+}
+.dragRegion {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding-left: 20px;
+  app-region: drag;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 650;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.brand svg {
+  color: var(--primary);
+}
+.titlebar[data-focused='false'] .brand {
+  opacity: 0.65;
+}
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 7px;
+  app-region: no-drag;
+}
+.controls button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--text-muted);
+}
+.controls button:hover {
+  background: var(--primary-container);
+  color: var(--on-container);
+}
+.controls button.close:hover {
+  background: var(--danger);
+  color: var(--background);
+}
+.controls button:focus-visible {
+  outline-offset: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .titlebar,
+  .brand,
+  .controls button {
+    transition: none;
+  }
+}

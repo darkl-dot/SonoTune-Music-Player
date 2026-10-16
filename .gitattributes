@@ -1,0 +1,12 @@
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.svg text eol=lf
+*.png binary
+*.ico binary
+*.wav binary
+*.mp3 binary
+*.flac binary
+*.ogg binary
+*.opus binary
+*.woff2 binary
