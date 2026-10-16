@@ -5,7 +5,7 @@ make local music easy to reach, keep the interface pleasant, and avoid unnecessa
 
 ## Setup
 
-Follow the prerequisites and development commands in the [README](README.md#development).
+Follow the prerequisites and commands in the [development guide](docs/development.md).
 Use the committed pnpm and Cargo lockfiles. Keep tools, build outputs, local libraries,
 and application data outside Git.
 
