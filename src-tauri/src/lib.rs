@@ -1,9 +1,11 @@
 mod audio;
 mod commands;
+mod gapless;
 mod library;
 mod listening;
 mod metadata;
 mod model;
+mod mp4;
 mod playback;
 mod queue;
 mod scanning;

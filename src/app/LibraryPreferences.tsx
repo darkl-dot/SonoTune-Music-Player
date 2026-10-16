@@ -43,6 +43,21 @@ export function LibraryPreferences() {
         {t('Трек, очередь и позиция сохраняются. Продолжайте нажатием Play.')}
       </p>
       <label className="preference-toggle">
+        <span>{t('Без пауз между треками')}</span>
+        <input
+          type="checkbox"
+          role="switch"
+          checked={settings.gapless !== false}
+          disabled={!desktop}
+          onChange={(e) => change({ gapless: e.target.checked })}
+        />
+      </label>
+      <p className="field-hint">
+        {desktop
+          ? t('Gapless: следующий трек готов заранее. Тишина в самой записи сохраняется.')
+          : t('Gapless доступен в приложении для компьютера.')}
+      </p>
+      <label className="preference-toggle">
         <span>{t('Показывать баннер на главной')}</span>
         <input
           type="checkbox"

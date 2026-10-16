@@ -90,4 +90,5 @@ export interface Settings {
   startupPage?: Section | 'last';
   scanIntervalMinutes?: number | null;
   showHomeBanner?: boolean;
+  gapless?: boolean;
 }

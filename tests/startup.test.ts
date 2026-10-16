@@ -7,6 +7,7 @@ const service = vi.hoisted(() => ({
   load: vi.fn(),
   volume: vi.fn(async () => {}),
   configureScan: vi.fn(async () => {}),
+  configureGapless: vi.fn(async () => {}),
 }));
 vi.mock('../src/shared/api', () => ({
   api: Promise.resolve(service),
@@ -86,4 +87,5 @@ it('uses the saved last page and volume for a first session with no restored tra
   expect(useStore.getState().section).toBe('favorites');
   expect(service.volume).toHaveBeenCalledWith(0.6);
   expect(service.configureScan).toHaveBeenCalledWith(null);
+  expect(service.configureGapless).toHaveBeenCalledWith(true);
 });

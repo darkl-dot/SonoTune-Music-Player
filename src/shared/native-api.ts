@@ -37,6 +37,8 @@ export const nativeApi: SonoApi = {
   savePin: (id, label) => invoke('save_pin', { id, label }),
   deletePin: (id) => invoke('delete_pin', { id }),
   configureScan: (minutes) => invoke('configure_scan', { minutes }),
+  configureGapless: (enabled) =>
+    invoke('player_command', { command: { kind: 'gapless', enabled } }),
   favorite: (id, value) => invoke('set_favorite', { id, value }),
   removeTrack: (id) => invoke('remove_track', { id }),
   saveTags: async (id, draft, sidecar) => {

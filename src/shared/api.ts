@@ -21,6 +21,7 @@ export interface SonoApi {
   savePin(id: string, label: string): Promise<void>;
   deletePin(id: string): Promise<void>;
   configureScan(minutes: number | null): Promise<void>;
+  configureGapless(enabled: boolean): Promise<void>;
   favorite(id: string, value: boolean): Promise<void>;
   removeTrack(id: string): Promise<void>;
   saveTags(id: string, draft: TagDraft, sidecar: boolean): Promise<TagSaveResult>;

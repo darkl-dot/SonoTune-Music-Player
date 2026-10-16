@@ -40,6 +40,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib native_session_round_trip 
 See [verification notes](../VERIFICATION.md) for what was tested and its limits, and
 [CONTRIBUTING.md](../CONTRIBUTING.md) for development guidance.
 Portable packaging is described in [the release guide](releasing.md).
+Native gapless behavior and codec boundaries are described in [the format notes](gapless-and-formats.md).
 
 ## Project structure
 

@@ -458,7 +458,7 @@ export function EmptyLibrary({
       )}
       <span className="empty-note">
         {!searching && !playlist && !favorites
-          ? t('MP3 · FLAC · WAV · OGG · OPUS  /  Всё остаётся на вашем устройстве')
+          ? t('MP3 · FLAC · WAV · OGG · OPUS · M4A · AAC  /  Всё остаётся на вашем устройстве')
           : ''}
       </span>
     </div>

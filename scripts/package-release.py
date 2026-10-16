@@ -57,9 +57,10 @@ def main():
         "Extract the entire archive and run SonoTune.exe. No installer is needed.\n"
         "Keep the DLLs, demo folder, and licenses beside the executable.\n"
         "Windows x64 with Microsoft Edge WebView2 Runtime is required.\n\n"
-        "Add folder: import your local MP3, FLAC, WAV, OGG, or OPUS files.\n"
+        "Add folder: import your local MP3, FLAC, WAV, OGG, OPUS, M4A, or AAC files.\n"
         "Demo: try six original short recordings.\n"
-        "Settings: language, appearance, startup page, banner, and scan interval.\n"
+        "Settings: language, appearance, startup page, banner, scan interval, and gapless.\n"
+        "Gapless is enabled by default. AAC-LC/ALAC M4A and ADTS AAC are supported.\n"
         "Playback is restored on pause. Press Play to continue.\n\n"
         "Local data: %APPDATA%\\app.sonotune.player\\\n"
         "See README.md and CHANGELOG.md for more details.\n",

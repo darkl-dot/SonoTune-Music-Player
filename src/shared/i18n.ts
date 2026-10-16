@@ -129,8 +129,12 @@ export const english: Record<string, string> = {
   ' · демо-библиотека': ' · demo library',
   ' · файл недоступен': ' · file unavailable',
   'JPG, PNG, WebP · до 8 МБ': 'JPG, PNG, WebP · up to 8 MB',
-  'MP3 · FLAC · WAV · OGG · OPUS  /  Всё остаётся на вашем устройстве':
-    'MP3 · FLAC · WAV · OGG · OPUS  /  Everything stays on your device',
+  'MP3 · FLAC · WAV · OGG · OPUS · M4A · AAC  /  Всё остаётся на вашем устройстве':
+    'MP3 · FLAC · WAV · OGG · OPUS · M4A · AAC  /  Everything stays on your device',
+  'Без пауз между треками': 'Gapless playback',
+  'Gapless: следующий трек готов заранее. Тишина в самой записи сохраняется.':
+    'The next track is ready ahead of time. Silence in the recording stays intact.',
+  'Gapless доступен в приложении для компьютера.': 'Gapless is available in the desktop app.',
   'SonoTune — главная': 'SonoTune — home',
   Альбом: 'Album',
   'Альбом за альбомом': 'One album at a time',

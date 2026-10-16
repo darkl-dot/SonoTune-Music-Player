@@ -32,6 +32,7 @@ export function normalizeSettings(value: Partial<Settings>): Settings {
         ? value.scanIntervalMinutes
         : null,
     showHomeBanner: value.showHomeBanner !== false,
+    gapless: value.gapless !== false,
   };
 }
 export function startupSection(settings: Settings, library: Library, last: string | null): Section {

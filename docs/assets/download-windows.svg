@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="300" height="46" viewBox="0 0 300 46" role="img" aria-labelledby="title">
-  <title id="title">Download for Windows · v1</title>
+  <title id="title">Download for Windows</title>
   <rect width="300" height="46" rx="18" fill="#c9aadd"/>
   <path d="M24 12v15m-6-6 6 6 6-6M16 30v4h16v-4" fill="none" stroke="#30213e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="47" y="29" fill="#30213e" font-family="Arial, sans-serif" font-size="15" font-weight="700">Download for Windows · v1</text>
+  <text x="47" y="29" fill="#30213e" font-family="Arial, sans-serif" font-size="15" font-weight="700">Download for Windows</text>
 </svg>

@@ -112,6 +112,8 @@ export const useStore = create<Store>((set, get) => ({
   setView: (view) => set({ view }),
   setSettings: (settings) => {
     const value = normalizeSettings({ ...get().settings, ...settings });
+    if ('gapless' in settings)
+      void run(async () => (await api).configureGapless(value.gapless !== false));
     if ('scanIntervalMinutes' in settings)
       void run(async () => (await api).configureScan(value.scanIntervalMinutes ?? null));
     localStorage.setItem('sonotune-settings', JSON.stringify(value));
@@ -257,6 +259,7 @@ export async function initialize() {
       ),
     });
     await service.configureScan(useStore.getState().settings.scanIntervalMinutes ?? null);
+    await service.configureGapless(useStore.getState().settings.gapless !== false);
     const savedVolume = Number(localStorage.getItem('sonotune-volume') ?? '0.7');
     if (!useStore.getState().playback.trackId)
       await service.volume(

@@ -224,7 +224,7 @@ audio.addEventListener('error', () => {
   emit();
 });
 
-const supported = /\.(mp3|flac|wav|ogg|opus)$/i;
+const supported = /\.(mp3|flac|wav|ogg|opus|m4a|aac)$/i;
 async function importFiles(files: File[], progress: (value: ScanProgress) => void, demo = false) {
   const { parseBlob } = await import('music-metadata');
   const db = await database;
@@ -385,6 +385,7 @@ export const webApi: SonoApi = {
     await (await database).delete('playlists', id);
   },
   configureScan: async () => {},
+  configureGapless: async () => {},
   savePin: async (id, label) => {
     const db = await database;
     if (!(await db.get('tracks', id)) || [...label].length > 100)

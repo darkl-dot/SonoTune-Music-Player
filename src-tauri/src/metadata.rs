@@ -192,7 +192,20 @@ pub fn read_track(
             .and_then(Accessor::date)
             .map(|date| u32::from(date.year)),
         genres: tag_values(tag, ItemKey::Genre),
-        duration: tagged.properties().duration().as_secs_f64(),
+        duration: if path
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("m4a"))
+        {
+            tagged
+                .properties()
+                .sample_rate()
+                .and_then(|rate| {
+                    crate::mp4::trim(path, rate).map(|trim| trim.frames as f64 / rate as f64)
+                })
+                .unwrap_or_else(|| tagged.properties().duration().as_secs_f64())
+        } else {
+            tagged.properties().duration().as_secs_f64()
+        },
         artwork,
         format: path
             .extension()
@@ -405,7 +418,7 @@ mod tests {
     }
     #[test]
     fn tag_round_trip_preserves_audio_and_creates_exact_backup_for_all_formats() {
-        for extension in ["wav", "flac", "mp3", "ogg", "opus"] {
+        for extension in ["wav", "flac", "mp3", "ogg", "opus", "m4a", "aac"] {
             let directory = tempfile::tempdir().unwrap();
             let path = fixture(extension, directory.path());
             let original = fs::read(&path).unwrap();
@@ -445,6 +458,39 @@ mod tests {
                 .title,
             "Тёплый свет"
         );
+    }
+    #[test]
+    fn m4a_itunes_gapless_metadata_and_covers_survive_tag_writes() {
+        for name in ["tone.m4a", "smpb.m4a", "tone.aac"] {
+            let directory = tempfile::tempdir().unwrap();
+            let path = directory.path().join(name);
+            fs::copy(
+                Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../tests/fixtures")
+                    .join(name),
+                &path,
+            )
+            .unwrap();
+            let before = samples(&path);
+            let track = read_track(&path, None, directory.path(), false).unwrap();
+            let mut values = draft();
+            let mut bytes = Cursor::new(vec![]);
+            image::RgbImage::from_pixel(8, 8, image::Rgb([80, 180, 120]))
+                .write_to(&mut bytes, image::ImageFormat::Png)
+                .unwrap();
+            values.artwork_changed = true;
+            values.artwork = Some(format!(
+                "data:image/png;base64,{}",
+                STANDARD.encode(bytes.get_ref())
+            ));
+            let result = save(&track, &values, false, directory.path()).unwrap();
+            assert!(result.track.artwork.is_some(), "{name}");
+            assert_eq!(
+                before,
+                samples(&path),
+                "gapless data changed after editing {name}"
+            );
+        }
     }
     #[test]
     fn refuses_to_replace_a_file_modified_since_scan() {

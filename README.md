@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/darkl-dot/SonoTune-Music-Player/releases/latest"><img src="docs/assets/download-windows.svg" alt="Download for Windows · v1" width="280" /></a>
+  <a href="https://github.com/darkl-dot/SonoTune-Music-Player/releases/latest"><img src="docs/assets/download-windows.svg" alt="Download for Windows" width="280" /></a>
   <br />
   &nbsp; · &nbsp;
   <a href="docs/user-guide.md">User guide</a>
@@ -38,7 +38,8 @@ folder, and press Play. Windows x64 and Microsoft Edge WebView2 Runtime are requ
 
 ## Features
 
-- **Your local library:** MP3, FLAC, WAV, Ogg Vorbis, and Ogg Opus; search by title, artist, or album.
+- **Your local library:** MP3, FLAC, WAV, Ogg Vorbis, Opus, M4A, and AAC; search by title, artist, or album.
+- **Gapless playback:** on by default, with a Settings switch. [Format details](docs/gapless-and-formats.md).
 - **A look you can change:** artwork colors, fixed palettes, light/dark appearance, and gentle motion.
 - **Your way to listen:** playlists with custom covers, favorites, pinned tracks, and an editable queue.
 - **Pick up later:** saved playback position and queue, restored on pause; choose your startup page.

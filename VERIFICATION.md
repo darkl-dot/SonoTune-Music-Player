@@ -1,10 +1,10 @@
-# Verification — SonoTune v1
+# Verification — SonoTune v1.1.0
 
 Verified on Windows x64 on October 16, 2026.
 
 ## Automated checks
 
-**113 checks passed:** 76 frontend/browser-adapter tests, 36 regular Rust tests, and
+**122 checks passed:** 77 frontend/browser-adapter tests, 44 regular Rust tests, and
 one separately executed native Windows media-session integration test.
 
 ```sh
@@ -49,7 +49,14 @@ Windows media session. It was explicitly run and passed for this release.
   single-track queues, boundaries, shuffle, and unreadable recordings.
 - Actual decoder/mixer behavior when another command arrives at the natural end of a song.
   System Play/Pause are idempotent; Stop releases the source.
-- MP3, FLAC, WAV, Ogg Vorbis, and Ogg Opus fixtures; malformed files return errors.
+- MP3, FLAC, WAV, Ogg Vorbis, Opus, AAC/ALAC M4A, and ADTS AAC fixtures; malformed files return errors.
+- Complete sample concatenation across WAV → WAV, MP3 VBR → CBR, M4A → AAC,
+  FLAC → Opus, and Ogg → WAV, without controller polling at the boundary.
+- MP3 CBR/VBR and M4A edit-list/iTunSMPB sample counts, 44.1/48 kHz normalization,
+  mono/stereo AAC, bounded-preroll AAC seeks, and missing encoder-timing behavior.
+- Gapless default, toggle persistence, queue replacement, repeat-one/list wrap,
+  pause, stop, and keeping the current playhead while changing upcoming tracks.
+- M4A/AAC title and artwork writes preserve decoded audio and encoder-trim instructions.
 - Opus mono/stereo/short recordings: sample counts, encoder delay, duration, output gain,
   channel alignment, seeking forward/backward/to the end, and Opus inside `.ogg`.
 - Metadata round trips preserve audio packet fingerprints and create exact backups.
@@ -84,7 +91,7 @@ failures are reported without stopping local playback.
 
 ## Build and package
 
-The supplied Windows executable is an optimized v1 (1.0.0) build produced using Rust 1.99,
+The supplied Windows executable is an optimized v1.1.0 build produced using Rust 1.99,
 LLVM-MinGW, and Node.js 24.19. Frontend JavaScript/CSS filenames and all six offline
 font subsets are verified inside the executable. The portable ZIP includes its DLLs,
 demo files, documentation, and third-party license notices. libopus is linked statically.
@@ -95,7 +102,7 @@ when packaging. `build-info.json` and `SHA256SUMS.txt` in the release identify t
 ## Verification limits
 
 Native-window visual review and physical Windows drag-and-drop are not confirmed for
-v1 in this run. The earlier local preview was blocked by saved browser permissions;
+v1.1.0 in this run. The earlier local preview was blocked by saved browser permissions;
 that restriction was not bypassed. The user's running instance was left untouched.
 
 The Windows media API test confirms integration at the SMTC/GSMTC level, not the

@@ -15,6 +15,7 @@ import type { Track } from '../src/shared/types';
 
 const service = vi.hoisted(() => ({
   configureScan: vi.fn(async () => {}),
+  configureGapless: vi.fn(async () => {}),
   savePin: vi.fn(async () => {}),
   deletePin: vi.fn(async () => {}),
   reorderQueue: vi.fn(async () => {}),
@@ -136,6 +137,18 @@ it('offers every page and named playlist, persists the choice and validates cust
   fireEvent.click(screen.getByRole('button', { name: 'Фоновое сканирование' }));
   fireEvent.click(screen.getByRole('option', { name: 'При старте приложения' }));
   await waitFor(() => expect(service.configureScan).toHaveBeenLastCalledWith(null));
+});
+it('enables gapless by default and persists changes to the native player', async () => {
+  expect(normalizeSettings({}).gapless).toBe(true);
+  expect(normalizeSettings({ gapless: false }).gapless).toBe(false);
+  render(<LibraryPreferences />);
+  const toggle = screen.getByRole('switch', { name: 'Без пауз между треками' }) as HTMLInputElement;
+  expect(toggle.checked).toBe(true);
+  fireEvent.click(toggle);
+  await waitFor(() => expect(service.configureGapless).toHaveBeenLastCalledWith(false));
+  expect(JSON.parse(localStorage.getItem('sonotune-settings')!).gapless).toBe(false);
+  fireEvent.click(toggle);
+  await waitFor(() => expect(service.configureGapless).toHaveBeenLastCalledWith(true));
 });
 it('hides only the Home banner and keeps the three cards and pinned tracks', async () => {
   useStore.setState({

@@ -15,7 +15,7 @@ pub fn supported(path: &Path) -> bool {
     path.extension().is_some_and(|extension| {
         matches!(
             extension.to_string_lossy().to_lowercase().as_str(),
-            "mp3" | "flac" | "wav" | "ogg" | "opus"
+            "mp3" | "flac" | "wav" | "ogg" | "opus" | "m4a" | "aac"
         )
     })
 }
@@ -173,6 +173,8 @@ mod tests {
         assert!(supported(Path::new("song.FLAC")));
         assert!(supported(Path::new("song.ogg")));
         assert!(supported(Path::new("song.OPUS")));
+        assert!(supported(Path::new("song.M4A")));
+        assert!(supported(Path::new("song.AAC")));
         assert!(!supported(Path::new("song.mp3.exe")));
         assert!(!supported(Path::new("folder")));
     }

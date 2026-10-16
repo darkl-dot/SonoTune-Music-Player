@@ -10,7 +10,8 @@ use std::{
 use symphonia::core::{
     audio::SampleBuffer,
     codecs::{
-        CodecParameters, CodecRegistry, Decoder as CodecDecoder, DecoderOptions, CODEC_TYPE_OPUS,
+        CodecParameters, CodecRegistry, Decoder as CodecDecoder, DecoderOptions, CODEC_TYPE_AAC,
+        CODEC_TYPE_OPUS,
     },
     errors::Error,
     formats::{FormatOptions, FormatReader, SeekMode, SeekTo},
@@ -23,6 +24,40 @@ use symphonia_adapter_libopus::OpusDecoder;
 pub type ErrorHandler = Box<dyn Fn(String) + Send>;
 pub type AudioSource = Box<dyn Source<Item = f32> + Send>;
 
+// Keep resampling continuous across decoder packets, including empty Vorbis
+// priming packets. Each supported recording has a stable rate/channel layout.
+struct StableFormat(AudioSource);
+impl Iterator for StableFormat {
+    type Item = f32;
+    fn next(&mut self) -> Option<f32> {
+        self.0.next()
+    }
+}
+impl Source for StableFormat {
+    fn current_span_len(&self) -> Option<usize> {
+        None
+    }
+    fn channels(&self) -> u16 {
+        self.0.channels()
+    }
+    fn sample_rate(&self) -> u32 {
+        self.0.sample_rate()
+    }
+    fn total_duration(&self) -> Option<Duration> {
+        self.0.total_duration()
+    }
+    fn try_seek(&mut self, pos: Duration) -> Result<(), SeekError> {
+        self.0.try_seek(pos)
+    }
+}
+pub fn normalized(source: AudioSource) -> AudioSource {
+    Box::new(rodio::source::UniformSourceIterator::new(
+        StableFormat(source),
+        2,
+        48000,
+    ))
+}
+
 pub fn open(
     path: &Path,
     duration: Option<Duration>,
@@ -32,6 +67,12 @@ pub fn open(
     let mut magic = [0; 4];
     let length = file.read(&mut magic).map_err(|e| e.to_string())?;
     file.rewind().map_err(|e| e.to_string())?;
+    if path
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("m4a"))
+    {
+        return AacSource::open(path, on_error);
+    }
     if length == 4 && &magic == b"OggS" {
         let stream = MediaSourceStream::new(Box::new(file), Default::default());
         let mut hint = Hint::new();
@@ -63,9 +104,197 @@ pub fn open(
         }
         file = File::open(path).map_err(|e| e.to_string())?;
     }
-    Decoder::try_from(file)
+    let length = file.metadata().map_err(|e| e.to_string())?.len();
+    Decoder::builder()
+        .with_data(file)
+        .with_byte_len(length)
+        .with_seekable(true)
+        .with_gapless(true)
+        .build()
         .map(|source| Box::new(source) as AudioSource)
         .map_err(|e| e.to_string())
+}
+
+struct AacSource {
+    format: Box<dyn FormatReader>,
+    decoder: Box<dyn CodecDecoder>,
+    id: u32,
+    samples: SampleBuffer<f32>,
+    offset: usize,
+    end: usize,
+    channels: u16,
+    rate: u32,
+    duration: Option<Duration>,
+    trim: Option<crate::mp4::Trim>,
+    time_base: symphonia::core::units::TimeBase,
+    discard_until: u64,
+    on_error: Option<ErrorHandler>,
+}
+impl AacSource {
+    fn open(path: &Path, on_error: Option<ErrorHandler>) -> Result<AudioSource, String> {
+        let file = File::open(path).map_err(|e| e.to_string())?;
+        let stream = MediaSourceStream::new(Box::new(file), Default::default());
+        let mut hint = Hint::new();
+        hint.with_extension("m4a");
+        let format = symphonia::default::get_probe()
+            .format(
+                &hint,
+                stream,
+                &FormatOptions {
+                    enable_gapless: true,
+                    ..Default::default()
+                },
+                &MetadataOptions::default(),
+            )
+            .map_err(|e| e.to_string())?
+            .format;
+        let track = format.default_track().ok_or("Аудиодорожка не найдена")?;
+        if track.codec_params.codec != CODEC_TYPE_AAC {
+            return Decoder::try_from(File::open(path).map_err(|e| e.to_string())?)
+                .map(|s| Box::new(s) as AudioSource)
+                .map_err(|e| e.to_string());
+        }
+        let id = track.id;
+        let decoder = symphonia::default::get_codecs()
+            .make(&track.codec_params, &DecoderOptions::default())
+            .map_err(|e| e.to_string())?;
+        let spec = *decoder.last_decoded().spec();
+        let rate = spec.rate;
+        let channels = spec.channels;
+        let trim = crate::mp4::trim(path, rate);
+        let duration = trim
+            .map(|t| Duration::from_secs_f64(t.frames as f64 / rate as f64))
+            .or_else(|| {
+                track
+                    .codec_params
+                    .time_base
+                    .zip(track.codec_params.n_frames)
+                    .map(|(base, n)| base.calc_time(n).into())
+            });
+        let time_base = track
+            .codec_params
+            .time_base
+            .unwrap_or(symphonia::core::units::TimeBase::new(1, rate));
+        let mut source = Self {
+            format,
+            decoder,
+            id,
+            samples: SampleBuffer::new(
+                4096,
+                symphonia::core::audio::SignalSpec::new(rate, channels),
+            ),
+            offset: 0,
+            end: 0,
+            channels: channels.count() as u16,
+            rate,
+            duration,
+            trim,
+            time_base,
+            discard_until: 0,
+            on_error,
+        };
+        if !source.fill().map_err(|e| e.to_string())? {
+            return Err("AAC audio is empty".into());
+        }
+        Ok(Box::new(source))
+    }
+    fn fill(&mut self) -> Result<bool, Error> {
+        loop {
+            let packet = match self.format.next_packet() {
+                Ok(p) => p,
+                Err(Error::IoError(e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+                    return Ok(false)
+                }
+                Err(e) => return Err(e),
+            };
+            if packet.track_id() != self.id {
+                continue;
+            }
+            let decoded = self.decoder.decode(&packet)?;
+            if decoded.spec().rate != self.rate
+                || decoded.spec().channels.count() != self.channels as usize
+            {
+                return Err(Error::Unsupported("AAC layout changed"));
+            }
+            self.samples.copy_interleaved_ref(decoded);
+            let frames = self.samples.len() / self.channels as usize;
+            let time = self.time_base.calc_time(packet.ts);
+            let first = (time.seconds as f64 * self.rate as f64 + time.frac * self.rate as f64)
+                .round() as u64;
+            let (start, end) = self
+                .trim
+                .map(|t| (t.start, t.start.saturating_add(t.frames)))
+                .unwrap_or((0, u64::MAX));
+            let start = start.max(self.discard_until);
+            if first >= end {
+                return Ok(false);
+            }
+            self.offset =
+                start.saturating_sub(first).min(frames as u64) as usize * self.channels as usize;
+            self.end =
+                end.saturating_sub(first).min(frames as u64) as usize * self.channels as usize;
+            if self.offset < self.end {
+                return Ok(true);
+            }
+        }
+    }
+}
+impl Iterator for AacSource {
+    type Item = f32;
+    fn next(&mut self) -> Option<f32> {
+        if self.offset >= self.end {
+            match self.fill() {
+                Ok(true) => {}
+                Ok(false) => return None,
+                Err(e) => {
+                    if let Some(report) = self.on_error.take() {
+                        report(format!("AAC: {e}"));
+                    }
+                    return None;
+                }
+            }
+        }
+        let value = self.samples.samples()[self.offset];
+        self.offset += 1;
+        Some(value)
+    }
+}
+impl Source for AacSource {
+    fn current_span_len(&self) -> Option<usize> {
+        Some(self.end - self.offset)
+    }
+    fn channels(&self) -> u16 {
+        self.channels
+    }
+    fn sample_rate(&self) -> u32 {
+        self.rate
+    }
+    fn total_duration(&self) -> Option<Duration> {
+        self.duration
+    }
+    fn try_seek(&mut self, pos: Duration) -> Result<(), SeekError> {
+        // Decode a bounded preroll so AAC overlap state is valid at the target.
+        let pos = self.duration.map(|d| pos.min(d)).unwrap_or(pos);
+        let target = self.trim.map(|t| t.start).unwrap_or(0)
+            + (pos.as_secs_f64() * self.rate as f64).round() as u64;
+        let preroll = target.saturating_sub(self.rate as u64);
+        self.format
+            .seek(
+                SeekMode::Accurate,
+                SeekTo::Time {
+                    time: Duration::from_secs_f64(preroll as f64 / self.rate as f64).into(),
+                    track_id: Some(self.id),
+                },
+            )
+            .map_err(|e| SeekError::Other(Box::new(e)))?;
+        self.decoder = symphonia::default::get_codecs()
+            .make(self.decoder.codec_params(), &DecoderOptions::default())
+            .map_err(|e| SeekError::Other(Box::new(e)))?;
+        self.offset = 0;
+        self.end = 0;
+        self.discard_until = target;
+        Ok(())
+    }
 }
 
 fn opus_duration(path: &Path) -> Result<Duration, String> {
@@ -280,6 +509,69 @@ mod tests {
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../tests/fixtures")
             .join(name)
+    }
+    #[test]
+    fn m4a_aac_alac_and_mp3_trim_to_exact_original_sample_count() {
+        for name in [
+            "tone.m4a",
+            "smpb.m4a",
+            "alac.m4a",
+            "boundary.mp3",
+            "boundary-cbr.mp3",
+        ] {
+            let source = open(&fixture(name), None, None).unwrap();
+            assert_eq!(source.channels(), 2, "{name}");
+            let samples: Vec<_> = source.collect();
+            assert_eq!(samples.len(), 88200, "{name}");
+            assert!(samples.iter().all(|v| v.is_finite()));
+            assert!(samples.iter().any(|v| v.abs() > 0.01));
+            assert_eq!(
+                normalized(open(&fixture(name), None, None).unwrap()).count(),
+                96000,
+                "normalized {name}"
+            );
+        }
+        let source = open(&fixture("tone.aac"), None, None).unwrap();
+        assert!(source.count() >= 88200); // ADTS has no reliable encoder padding metadata.
+        assert!(
+            open(&fixture("no-gapless.mp3"), None, None)
+                .unwrap()
+                .count()
+                > 88200
+        );
+        let source = open(&fixture("long.m4a"), None, None).unwrap();
+        assert_eq!(source.channels(), 1);
+        assert_eq!(source.count(), 198000);
+    }
+    #[test]
+    fn m4a_seek_matches_continuous_decode_and_saturates_at_end() {
+        for name in ["tone.m4a", "long.m4a"] {
+            let baseline: Vec<_> = open(&fixture(name), None, None).unwrap().collect();
+            let mut source = open(&fixture(name), None, None).unwrap();
+            let rate = source.sample_rate() as f64;
+            let channels = source.channels() as usize;
+            for position in if name == "long.m4a" {
+                [2.5, 0.0, 3.75, 1.2]
+            } else {
+                [0.5, 0.0, 0.9, 0.25]
+            } {
+                source.try_seek(Duration::from_secs_f64(position)).unwrap();
+                let samples: Vec<_> = source.by_ref().collect();
+                let start = (position * rate).round() as usize * channels;
+                assert_eq!(samples.len(), baseline.len() - start);
+                let rms = samples
+                    .iter()
+                    .zip(&baseline[start..])
+                    .map(|(a, b)| f64::from(a - b).powi(2))
+                    .sum::<f64>()
+                    / samples.len() as f64;
+                // AAC noise synthesis may differ after a seek. Frame counts
+                // remain exact; decoded audio must stay within codec noise.
+                assert!(rms.sqrt() < 0.002, "seek {position}: RMS {}", rms.sqrt());
+            }
+            source.try_seek(Duration::from_secs(20)).unwrap();
+            assert_eq!(source.next(), None);
+        }
     }
     #[test]
     fn opus_mono_and_stereo_decode_to_exact_audible_duration() {

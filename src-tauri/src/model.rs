@@ -178,6 +178,7 @@ pub enum PlayerCommand {
     ReorderQueue { ids: Vec<String> },
     RemoveQueue { id: String },
     ClearNext,
+    Gapless { enabled: bool },
 }
 
 pub fn now() -> u64 {

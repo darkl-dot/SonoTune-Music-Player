@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.1.0 — 2026-10-16
+
+- Gapless playback, enabled by default with a persistent Settings switch in English and Russian.
+- One streaming decoder is prepared ahead of time; track transitions use the same output sink.
+- MP3 encoder delay and padding from Xing/LAME, Opus pre-skip, and M4A AAC edit-list/iTunSMPB trimming.
+- M4A (AAC-LC and ALAC) and ADTS AAC scanning, playback, metadata, artwork, and tag editing with backups.
+- Queue edits replace the pending track without restarting the song; repeat modes and session restoration remain intact.
+- Fixed initial format handling and continuous resampling for mixed-rate and mixed-channel queues.
+- Added synthetic fixtures and sample-level transition, seek, format, and metadata-preservation checks.
+
+Raw ADTS AAC and MP3 without encoder trim metadata can retain codec padding. SonoTune does not guess
+by removing quiet audio. See [format notes](docs/gapless-and-formats.md) for the exact support boundary.
+
 ## v1 — 2026-10-16
 
 - Updated English and Russian interface copy with shorter, conversational labels.

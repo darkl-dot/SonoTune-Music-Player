@@ -17,7 +17,7 @@ Your library and preferences are stored separately from the application folder.
 
 | Your music                                         | Your listening space                             |
 | -------------------------------------------------- | ------------------------------------------------ |
-| MP3, FLAC, WAV, Ogg Vorbis, and Ogg Opus           | Adaptive artwork colors and three fixed palettes |
+| MP3, FLAC, WAV, Ogg Vorbis, Opus, M4A, and AAC     | Adaptive artwork colors and three fixed palettes |
 | Recursive folder import and incremental rescanning | Light, dark, and system appearance               |
 | Search by title, artist, or album                  | A customizable Home page with optional banner    |
 | Artists, albums, genres, favorites, and playlists  | Recent, most-played, and random song cards       |
@@ -101,7 +101,12 @@ for Russian and **Varela Round** for English, with Nunito providing Cyrillic fal
 ## Current boundaries
 
 Windows is the supported release platform. Linux and macOS builds are future work.
-Ogg Opus supports mono and stereo; multichannel Opus, gapless playback, crossfade,
+Gapless playback is enabled by default; turn it off in Settings with **Gapless playback**
+(**Без пауз между треками** in Russian). It prepares the next file ahead of time and
+preserves silence that belongs to the recording. [Codec details and limits](gapless-and-formats.md).
+
+M4A supports AAC-LC and ALAC; raw AAC uses ADTS. AAC and Opus decoding support mono and stereo.
+HE-AAC, DRM-protected files, multichannel AAC/Opus, crossfade,
 and real-time filesystem watching are not implemented. Renaming or moving a file
 outside the app imports it as a new library entry at the next scan.
 

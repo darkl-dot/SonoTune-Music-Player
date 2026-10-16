@@ -39,6 +39,7 @@ impl PlaybackEvents for AppEvents {
 }
 
 pub enum Message {
+    Boundary,
     Media(MediaAction),
     Shutdown,
     Command(PlayerCommand, SyncSender<Result<(), String>>),
@@ -63,6 +64,7 @@ impl AudioEngine {
     ) -> Self {
         let (send, receive) = mpsc::channel();
         let system_send = send.clone();
+        let audio_send = send.clone();
         let thread = std::thread::Builder::new()
             .name("sonotune-audio".into())
             .spawn(move || {
@@ -71,6 +73,10 @@ impl AudioEngine {
                     Err(error) => (None, Some(error)),
                 };
                 let mut engine = Engine {
+                    wake: Some(audio_send),
+                    gapless: true,
+                    next_slot: None,
+                    preload_failed: None,
                     media,
                     media_error,
                     media_track: None,
@@ -135,6 +141,10 @@ impl AudioEngine {
     }
 }
 struct Engine {
+    wake: Option<Sender<Message>>,
+    gapless: bool,
+    next_slot: Option<crate::gapless::NextSlot>,
+    preload_failed: Option<String>,
     media: Option<SystemMedia>,
     media_error: Option<String>,
     media_track: Option<Track>,
@@ -156,6 +166,7 @@ struct Engine {
 }
 impl Engine {
     fn restore(&mut self) -> Result<(), String> {
+        self.gapless = self.db.state::<bool>("gapless")?.unwrap_or(true);
         let Some(saved) = self.db.state::<SavedPlayback>("playback")? else {
             return Ok(());
         };
@@ -312,8 +323,11 @@ impl Engine {
         }
     }
     fn emit(&mut self) {
+        self.sync_boundary();
         if let Some(sink) = &self.sink {
-            self.state.position = sink.get_pos().as_secs_f64().min(self.state.duration);
+            if !sink.empty() {
+                self.state.position = sink.get_pos().as_secs_f64().min(self.state.duration);
+            }
             self.state.playing = !sink.is_paused();
         }
         let stopped = self.pending_position.is_none() && self.sink.as_ref().is_none_or(Sink::empty);
@@ -372,7 +386,10 @@ impl Engine {
         let sink = self.create_sink()?;
         sink.pause();
         sink.set_volume(self.state.volume);
-        sink.append(decoder);
+        // Keep a fixed format across boundaries, including mixed-rate albums.
+        sink.append(audio::normalized(decoder));
+        self.next_slot.take();
+        self.preload_failed = None;
         self.tick();
         if let Some(old) = self.sink.take() {
             old.stop();
@@ -398,7 +415,9 @@ impl Engine {
     fn create_sink(&mut self) -> Result<Sink, String> {
         #[cfg(test)]
         if let Some(mixer) = &self.test_mixer {
-            return Ok(Sink::connect_new(mixer));
+            let (sink, output) = Sink::new();
+            mixer.add(crate::gapless::FixedOutput(output));
+            return Ok(sink);
         }
         if self.stream.is_none() {
             self.stream = Some(
@@ -406,7 +425,13 @@ impl Engine {
                     .map_err(|e| format!("Не удалось открыть звуковое устройство: {e}"))?,
             );
         }
-        Ok(Sink::connect_new(self.stream.as_ref().unwrap().mixer()))
+        let (sink, output) = Sink::new();
+        self.stream
+            .as_ref()
+            .unwrap()
+            .mixer()
+            .add(crate::gapless::FixedOutput(output));
+        Ok(sink)
     }
     fn advance(&mut self, direction: i8, ended: bool) -> Result<(), String> {
         if !ended
@@ -489,6 +514,30 @@ impl Engine {
         Ok(())
     }
     fn command(&mut self, command: PlayerCommand) -> Result<(), String> {
+        self.sync_boundary();
+        // Release the future file before changing its queue position or replacing
+        // the current source. If the audio callback won the race, adopt it first.
+        if matches!(
+            &command,
+            PlayerCommand::Play { .. }
+                | PlayerCommand::Step { .. }
+                | PlayerCommand::Stop
+                | PlayerCommand::Mode { .. }
+                | PlayerCommand::Enqueue { .. }
+                | PlayerCommand::Remove { .. }
+                | PlayerCommand::SelectQueue { .. }
+                | PlayerCommand::ReorderQueue { .. }
+                | PlayerCommand::RemoveQueue { .. }
+                | PlayerCommand::ClearNext
+                | PlayerCommand::Gapless { .. }
+                | PlayerCommand::RefreshMetadata
+        ) {
+            self.preload_failed = None;
+            if let Some(slot) = &self.next_slot {
+                let _ = slot.replace(None);
+            }
+            self.sync_boundary();
+        }
         self.checkpoint_dirty |= !matches!(
             &command,
             PlayerCommand::Snapshot | PlayerCommand::RefreshMetadata
@@ -527,6 +576,7 @@ impl Engine {
                 self.state.playing = false;
             }
             PlayerCommand::Stop => {
+                self.next_slot.take();
                 self.pending_position = None;
                 self.sink.take();
                 self.stream.take();
@@ -602,6 +652,7 @@ impl Engine {
                 self.state.queue.retain(|value| value != &id);
                 self.original_queue.retain(|value| value != &id);
                 if self.state.track_id.as_ref() == Some(&id) {
+                    self.next_slot.take();
                     self.sink.take();
                     self.pending_position = None;
                     self.media_track = None;
@@ -653,8 +704,98 @@ impl Engine {
                 }
             }
             PlayerCommand::Snapshot => {}
+            PlayerCommand::Gapless { enabled } => {
+                self.db.save_state("gapless", &enabled)?;
+                self.gapless = enabled;
+            }
         }
+        self.prepare_next();
         Ok(())
+    }
+    fn sync_boundary(&mut self) {
+        let Some((claimed, started)) = self.next_slot.as_ref().map(|slot| slot.poll()) else {
+            return;
+        };
+        if let Some((track, duration)) = started {
+            self.tick();
+            self.state.track_id = Some(track.id.clone());
+            self.state.duration = duration;
+            self.state.position = 0.0;
+            self.media_track = Some(track);
+            self.media_dirty = true;
+            self.checkpoint_force = true;
+            self.session = Some(ListeningSession::new(duration, Instant::now()));
+            self.mark_started();
+        }
+        if claimed {
+            self.next_slot.take();
+        }
+    }
+    fn prepare_next(&mut self) {
+        if !self.gapless || self.sink.as_ref().is_none_or(Sink::empty) {
+            return;
+        }
+        let index = self
+            .state
+            .queue
+            .iter()
+            .position(|id| Some(id) == self.state.track_id.as_ref());
+        let Some(next) = next_index(
+            self.state.queue.len(),
+            index,
+            1,
+            false,
+            &self.state.repeat,
+            true,
+            0,
+        ) else {
+            return;
+        };
+        let id = self.state.queue[next].clone();
+        if self.preload_failed.as_ref() == Some(&id) {
+            return;
+        }
+        if self.next_slot.as_ref().and_then(|slot| slot.id()).as_ref() == Some(&id) {
+            return;
+        }
+        let prepared = (|| {
+            let track = self.db.track(&id)?;
+            let events = self.events.clone();
+            let title = track.title.clone();
+            let source = audio::open(
+                Path::new(&track.path),
+                Some(Duration::from_secs_f64(track.duration.max(0.0))),
+                Some(Box::new(move |error| {
+                    events.error(format!("{title}: {error}"))
+                })),
+            )?;
+            Ok::<_, String>(crate::gapless::Prepared::new(track, source))
+        })();
+        // An unreadable future file is handled by the usual skip/error path at
+        // the boundary, so an idle paused track does not repeatedly notify.
+        let Ok(prepared) = prepared else {
+            self.preload_failed = Some(id);
+            return;
+        };
+        if self.next_slot.is_none() {
+            let slot = crate::gapless::NextSlot::default();
+            let _ = slot.replace(Some(prepared));
+            let wake = self.wake.clone().map(|send| {
+                Box::new(move || {
+                    let _ = send.send(Message::Boundary);
+                }) as Box<dyn FnOnce() + Send>
+            });
+            self.sink.as_ref().unwrap().append(slot.source(wake));
+            self.next_slot = Some(slot);
+        } else if self
+            .next_slot
+            .as_ref()
+            .unwrap()
+            .replace(Some(prepared))
+            .is_err()
+        {
+            self.sync_boundary();
+        }
     }
     fn save(
         &mut self,
@@ -662,6 +803,11 @@ impl Engine {
         draft: TagDraft,
         sidecar: bool,
     ) -> Result<TagSaveResult, String> {
+        self.preload_failed = None;
+        if let Some(slot) = &self.next_slot {
+            let _ = slot.replace(None);
+        }
+        self.sync_boundary();
         let restore =
             !sidecar && self.state.track_id.as_ref() == Some(&track.id) && self.sink.is_some();
         let position = self
@@ -705,19 +851,23 @@ impl Engine {
                 self.media_dirty = true;
             }
         }
+        self.prepare_next();
         self.emit();
         result
     }
     fn finish_ended(&mut self) {
+        self.sync_boundary();
         if self.state.playing
             && self
                 .sink
                 .as_ref()
                 .is_some_and(|sink| !sink.is_paused() && sink.empty())
         {
+            self.state.position = self.state.duration;
             if let Err(error) = self.advance(1, true) {
                 self.error(error);
             }
+            self.prepare_next();
         }
     }
     fn media_action(&mut self, action: MediaAction) -> Result<(), String> {
@@ -748,7 +898,13 @@ impl Engine {
             };
             let incoming = receive.recv_timeout(wait);
             self.tick();
+            self.sync_boundary();
             match incoming {
+                Ok(Message::Boundary) => {
+                    self.prepare_next();
+                    self.finish_ended();
+                    self.emit();
+                }
                 Ok(Message::Command(command, reply)) => {
                     self.checkpoint_force |= !matches!(
                         &command,
@@ -787,6 +943,7 @@ impl Engine {
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {
                     self.finish_ended();
+                    self.prepare_next();
                     if self.state.playing || self.sink.as_ref().is_some_and(Sink::empty) {
                         self.emit();
                     }
@@ -901,6 +1058,10 @@ mod tests {
             let (mixer, output) = rodio::mixer::mixer(2, 48_000);
             let events = Arc::new(RecordedEvents::default());
             let engine = Engine {
+                wake: None,
+                gapless: false,
+                next_slot: None,
+                preload_failed: None,
                 events: events.clone(),
                 test_mixer: Some(mixer),
                 media: None,
@@ -1121,6 +1282,170 @@ mod tests {
                 }
             );
         }
+    }
+    #[test]
+    fn gapless_mixer_outputs_exact_concatenation_without_waiting_for_controller_poll() {
+        for (left, right) in [
+            ("tone.wav", "tone.wav"),
+            ("boundary.mp3", "boundary-cbr.mp3"),
+            ("tone.m4a", "tone.aac"),
+            ("tone.flac", "tone.opus"),
+            ("tone.ogg", "tone.wav"),
+        ] {
+            let mut h = Harness::new();
+            for (index, name) in [(0, left), (1, right)] {
+                let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../tests/fixtures")
+                    .join(name);
+                let path = h.directory.path().join(format!("{index}-{name}"));
+                std::fs::copy(source, &path).unwrap();
+                let mut track =
+                    metadata::read_track(&path, None, h.directory.path(), false).unwrap();
+                track.id = h.ids[index].clone();
+                h.engine.db.upsert_batch(&[track]).unwrap();
+            }
+            h.engine.gapless = true;
+            h.engine.state.volume = 1.0;
+            h.start(0, Repeat::None);
+            let path = h.directory.path().join(format!("0-{left}"));
+            let reference: Vec<_> =
+                audio::normalized(audio::open(&path, None, None).unwrap()).collect();
+            let second: Vec<_> = audio::normalized(
+                audio::open(&h.directory.path().join(format!("1-{right}")), None, None).unwrap(),
+            )
+            .collect();
+            let first = reference
+                .iter()
+                .position(|s| s.abs() > 0.000001)
+                .unwrap_or_else(|| {
+                    panic!("{left}: {} silent/empty reference samples", reference.len())
+                });
+            let expected: Vec<_> = reference[first..].iter().chain(&second).copied().collect();
+            let mut actual = vec![];
+            for _ in 0..20000 {
+                let sample = h.output.next().unwrap();
+                if sample.abs() > 0.000001 {
+                    actual.push(sample);
+                    break;
+                }
+            }
+            assert_eq!(actual.len(), 1);
+            actual.extend(h.output.by_ref().take(expected.len() - 1));
+            assert_eq!(actual.len(), expected.len());
+            let mismatch = actual
+                .iter()
+                .zip(&expected)
+                .position(|(a, b)| (a - b).abs() > 0.000001);
+            assert_eq!(
+                mismatch,
+                None,
+                "gap or shifted sample at {mismatch:?}; boundary={}; actual={:?}; expected={:?}",
+                reference.len() - first,
+                &actual[..20],
+                &expected[..20]
+            );
+            h.engine.sync_boundary();
+            assert_eq!(h.engine.state.track_id.as_ref(), Some(&h.ids[1]));
+            assert_eq!(h.engine.db.load().unwrap().listening.len(), 2);
+        }
+    }
+    #[test]
+    fn gapless_queue_edits_and_setting_replace_only_the_pending_decoder() {
+        let mut h = Harness::new();
+        h.engine.gapless = true;
+        h.start(0, Repeat::All);
+        for _ in 0..3000 {
+            h.output.next();
+        }
+        let before = h.engine.sink.as_ref().unwrap().get_pos();
+        h.command(PlayerCommand::ReorderQueue {
+            ids: vec![h.ids[0].clone(), h.ids[2].clone(), h.ids[1].clone()],
+        });
+        assert_eq!(
+            h.engine.next_slot.as_ref().unwrap().id(),
+            Some(h.ids[2].clone())
+        );
+        assert_eq!(h.engine.sink.as_ref().unwrap().get_pos(), before);
+        h.command(PlayerCommand::Gapless { enabled: false });
+        assert_eq!(h.engine.next_slot.as_ref().unwrap().id(), None);
+        assert_eq!(h.engine.db.state::<bool>("gapless").unwrap(), Some(false));
+        h.command(PlayerCommand::Gapless { enabled: true });
+        assert_eq!(
+            h.engine.next_slot.as_ref().unwrap().id(),
+            Some(h.ids[2].clone())
+        );
+        h.command(PlayerCommand::ClearNext);
+        // Repeat-list with a single current entry now preloads that entry.
+        assert_eq!(
+            h.engine.next_slot.as_ref().unwrap().id(),
+            Some(h.ids[0].clone())
+        );
+        h.command(PlayerCommand::Mode {
+            shuffle: false,
+            repeat: Repeat::None,
+        });
+        assert_eq!(h.engine.next_slot.as_ref().unwrap().id(), None);
+        h.drain();
+        h.engine.finish_ended();
+        h.engine.emit();
+        assert!(!h.engine.state.playing);
+        assert_eq!(h.engine.state.track_id.as_ref(), Some(&h.ids[0]));
+    }
+    #[test]
+    fn gapless_respects_repeat_one_single_and_stop_releases_preload() {
+        for mode in [Repeat::One, Repeat::Single] {
+            let mut h = Harness::new();
+            h.engine.gapless = true;
+            h.start(0, mode.clone());
+            if mode == Repeat::One {
+                assert_eq!(
+                    h.engine.next_slot.as_ref().unwrap().id(),
+                    Some(h.ids[0].clone())
+                );
+                for _ in 0..110000 {
+                    h.output.next();
+                }
+                h.engine.sync_boundary();
+                assert_eq!(h.engine.state.track_id.as_ref(), Some(&h.ids[0]));
+                assert_eq!(h.engine.session.as_ref().unwrap().started, true);
+            } else {
+                assert!(h.engine.next_slot.is_none());
+            }
+            h.command(PlayerCommand::Stop);
+            assert!(h.engine.sink.is_none());
+            assert!(h.engine.next_slot.is_none());
+        }
+    }
+    #[test]
+    fn gapless_wraps_the_last_track_and_resets_its_position() {
+        let mut h = Harness::new();
+        h.engine.gapless = true;
+        h.start(2, Repeat::All);
+        for _ in 0..110000 {
+            h.output.next();
+        }
+        h.engine.sync_boundary();
+        h.engine.emit();
+        assert_eq!(h.engine.state.track_id.as_ref(), Some(&h.ids[0]));
+        assert!(h.engine.state.position < 0.5, "{}", h.engine.state.position);
+        h.engine.prepare_next();
+        assert_eq!(
+            h.engine.next_slot.as_ref().unwrap().id(),
+            Some(h.ids[1].clone())
+        );
+        // Pause neither consumes the pending track nor opens a new current sink.
+        h.command(PlayerCommand::Pause);
+        for _ in 0..1000 {
+            h.output.next();
+        }
+        h.engine.emit();
+        let position = h.engine.state.position;
+        for _ in 0..5000 {
+            h.output.next();
+        }
+        h.engine.emit();
+        assert_eq!(h.engine.state.position, position);
+        assert!(!h.engine.state.playing);
     }
     #[test]
     fn real_decoder_finishes_correctly_even_when_a_command_arrives_at_the_end() {
