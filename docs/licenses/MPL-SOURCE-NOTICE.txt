@@ -1,0 +1,13 @@
+SonoTune's own application code is licensed under MIT.
+
+The bundled Symphonia decoder/demuxer libraries (including AAC, ALAC, and MP4)
+are unmodified third-party components licensed under the Mozilla Public
+License 2.0. A copy is included in MPL-2.0.txt.
+
+Exact package names, versions, license identifiers, and source locations are
+listed in the accompanying THIRD_PARTY_NOTICES.json. Each crates.io package
+page links to that exact version's downloadable source archive. Symphonia's
+upstream repository is https://github.com/pdeljanov/Symphonia.
+
+These third-party licenses apply to their respective components; they do not
+replace SonoTune's MIT license.

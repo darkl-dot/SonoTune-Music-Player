@@ -52,6 +52,8 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     for name in ["LICENSE", "README.md", "CHANGELOG.md", "VERIFICATION.md"]:
         shutil.copy2(project / name, app / name)
+    for notice in (project / "docs/licenses").glob("*.txt"):
+        shutil.copy2(notice, app / "licenses" / notice.name)
     (app / "QUICK_START.txt").write_text(
         f"SonoTune {display_version} - local music, press Play\n\n"
         "Extract the entire archive and run SonoTune.exe. No installer is needed.\n"
