@@ -1,6 +1,15 @@
 # Changelog
 
-## 0.5.0 — 2026-10-16
+## v1 — 2026-10-16
+
+- Updated English and Russian interface copy with shorter, conversational labels.
+- Home banner: “Можно просто нажать Play.” / “You can just press Play.”
+- Updated category signatures, listening cards, pins, search and empty-list messages.
+- Favorites now explain how to save a song with the heart button.
+- Version v1 in the interface and release, with 1.0.0 build metadata.
+- MIT license included inside the portable and source archives.
+
+## Library and listening features
 
 ### Added
 
@@ -20,10 +29,9 @@
 - Stale queue IDs are filtered without applying a deleted song's position to another song.
 - Regression coverage for restoration, queue editing, scanning, preferences, and pins.
 
-This first repository release also includes English project documentation and repository artwork.
-The Windows application binary is the verified 0.5.0 build.
+English project documentation and repository artwork are included.
 
-## 0.4.0 — 2026-10-16
+## Windows integration
 
 - Native Windows media-session integration with metadata, artwork, timeline, and playback commands.
 - Four playback modes with an animated menu and keyboard support.

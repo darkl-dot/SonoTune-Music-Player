@@ -34,7 +34,7 @@ export function PinnedTracks({ onEdit }: { onEdit?(track?: Track): void }) {
       <div className={styles.heading}>
         <h2>
           <Pin size={16} />
-          {t('Всегда под рукой')}
+          {t('Чтобы не искать')}
         </h2>
         <button className="button ghost small" onClick={() => onEdit?.()} disabled={!tracks.length}>
           <Plus size={16} />

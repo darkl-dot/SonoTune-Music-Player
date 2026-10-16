@@ -1,4 +1,4 @@
-# Verification — SonoTune 0.5.0
+# Verification — SonoTune v1
 
 Verified on Windows x64 on October 16, 2026.
 
@@ -84,7 +84,7 @@ failures are reported without stopping local playback.
 
 ## Build and package
 
-The supplied Windows executable is an optimized 0.5.0 build produced using Rust 1.99,
+The supplied Windows executable is an optimized v1 (1.0.0) build produced using Rust 1.99,
 LLVM-MinGW, and Node.js 24.19. Frontend JavaScript/CSS filenames and all six offline
 font subsets are verified inside the executable. The portable ZIP includes its DLLs,
 demo files, documentation, and third-party license notices. libopus is linked statically.
@@ -94,10 +94,9 @@ when packaging. `build-info.json` and `SHA256SUMS.txt` in the release identify t
 
 ## Verification limits
 
-Opening the local 0.5.0 preview was blocked by the browser tool's saved origin
-permissions. That restriction was not bypassed. A native-window visual review and
-physical Windows drag-and-drop are therefore not confirmed for 0.5.0. The user's
-running older instance was left untouched.
+Native-window visual review and physical Windows drag-and-drop are not confirmed for
+v1 in this run. The earlier local preview was blocked by saved browser permissions;
+that restriction was not bypassed. The user's running instance was left untouched.
 
 The Windows media API test confirms integration at the SMTC/GSMTC level, not the
 appearance of every third-party flyout. Real-device listening, multiple display DPI

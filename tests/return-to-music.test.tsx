@@ -144,7 +144,7 @@ it('hides only the Home banner and keeps the three cards and pinned tracks', asy
   });
   render(<HomeView />);
   expect(screen.queryByText('Меньше шума.')).toBeNull();
-  expect(screen.getByRole('article', { name: 'Может, это?' })).toBeTruthy();
+  expect(screen.getByRole('article', { name: 'А может, это?' })).toBeTruthy();
   expect(screen.getByText('Под игру')).toBeTruthy();
   await waitFor(() =>
     expect(

@@ -4,13 +4,13 @@ import { Flower } from '../shared/ui';
 import { t, useLanguage } from '../shared/i18n';
 
 const signatures = {
-  home: [House, 'Музыка рядом', 'В своём ритме'],
-  tracks: [AudioLines, 'Каждый трек — история', 'Вся ваша музыка'],
-  artists: [MicVocal, 'Голоса, которые близки', 'Ваши исполнители'],
-  albums: [Album, 'Хорошее слушают целиком', 'Альбом за альбомом'],
-  genres: [Tags, 'У каждого дня свой жанр', 'Найдите своё звучание'],
-  favorites: [Heart, 'Любимое всегда рядом', 'Прямо в сердце'],
-  playlists: [ListMusic, 'Плейлисты — это удобно', 'Настроение по порядку'],
+  home: [House, 'Музыка рядом', 'Главная'],
+  tracks: [AudioLines, 'Все треки на месте', 'Библиотека'],
+  artists: [MicVocal, 'Кого послушаем?', 'Исполнители'],
+  albums: [Album, 'Послушаем целиком?', 'Альбомы'],
+  genres: [Tags, 'Что сегодня включим?', 'Жанры'],
+  favorites: [Heart, 'Те самые треки', 'Избранное'],
+  playlists: [ListMusic, 'Плейлисты — это удобно', 'Под игру, под работу или просто так.'],
 } as const;
 
 export function CategorySignature() {

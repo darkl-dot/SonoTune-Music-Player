@@ -1,8 +1,7 @@
-# SonoTune 0.5.0
+# SonoTune v1
 
-A local music player for Windows, focused on a calm, beautiful interface and
-lightweight native playback. Add your folders, choose a song, and enjoy your own
-music without an account or cloud library.
+A local music player for Windows. Add a folder, pick a song, and press Play.
+No account or cloud library required.
 
 ## What's included
 
@@ -13,7 +12,15 @@ music without an account or cloud library.
 - Native Windows media controls, including metadata, artwork, and the playback timeline.
 - English and Russian interfaces with offline Nunito and Varela Round fonts.
 
-## New in 0.5.0
+## Updated in v1
+
+- Shorter, more conversational English and Russian interface text.
+- Home banner: “Можно просто нажать Play.” / “You can just press Play.”
+- Updated category labels, listening cards, pinned tracks, and empty-list messages.
+- A separate Favorites hint explaining the heart button.
+- v1 in the interface; 1.0.0 in build metadata. MIT license included in both downloads.
+
+## Library and playback
 
 - Choose any startup page, a specific playlist, or the last section you visited.
 - Restore your track, queue, position, volume, shuffle, and playback mode. The player opens paused.
@@ -55,8 +62,6 @@ is a design goal rather than a measured FPS or memory guarantee.
 
 ## License
 
-SonoTune's application source and binary in this release are licensed under the MIT
-License, copyright (c) 2026 darkl-dot. The attached `LICENSE` supplies the license notice
-for the original 0.5.0 archives. Bundled dependencies and fonts retain their own licenses;
-their notices remain included in the downloads. The original version tag and ZIP files
-are unchanged. Future portable archives include the application license directly.
+SonoTune is licensed under the MIT License, copyright (c) 2026 darkl-dot. Both ZIP
+archives include the application license. Bundled fonts and dependencies retain
+their own licenses and notices.

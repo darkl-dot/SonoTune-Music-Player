@@ -398,7 +398,15 @@ export function GroupGrid({
     </div>
   );
 }
-export function EmptyLibrary({ searching, playlist }: { searching?: boolean; playlist?: boolean }) {
+export function EmptyLibrary({
+  searching,
+  playlist,
+  favorites,
+}: {
+  searching?: boolean;
+  playlist?: boolean;
+  favorites?: boolean;
+}) {
   useLanguage();
   const busy = useStore((s) => s.busy);
   return (
@@ -409,21 +417,21 @@ export function EmptyLibrary({ searching, playlist }: { searching?: boolean; pla
       </div>
       <h2>
         {searching
-          ? t('Пока ничего не нашлось')
-          : playlist
-            ? t('Здесь начинается новый микс')
-            : t('Дайте музыке место')}
+          ? t('Ничего не нашли')
+          : playlist || favorites
+            ? t('С чего начнём?')
+            : t('Начнём с твоей музыки')}
       </h2>
       <p>
         {searching
-          ? t('Попробуйте другое название, исполнителя или альбом.')
-          : playlist
-            ? t('Перетащите сюда треки из библиотеки или добавьте их через меню «⋯».')
-            : t(
-                'Добавьте папку с музыкой. Мы найдём треки, прочитаем теги и всё аккуратно разложим.',
-              )}
+          ? t('Попробуй другое название или исполнителя.')
+          : favorites
+            ? t('Нажми на сердечко, чтобы сохранить песню здесь.')
+            : playlist
+              ? t('Перетащи сюда треки или добавь их через меню.')
+              : t('Добавь папку — найдём в ней треки.')}
       </p>
-      {!searching && !playlist && (
+      {!searching && !playlist && !favorites && (
         <div className="empty-actions">
           <button
             className="button primary"
@@ -449,7 +457,7 @@ export function EmptyLibrary({ searching, playlist }: { searching?: boolean; pla
         </button>
       )}
       <span className="empty-note">
-        {!searching && !playlist
+        {!searching && !playlist && !favorites
           ? t('MP3 · FLAC · WAV · OGG · OPUS  /  Всё остаётся на вашем устройстве')
           : ''}
       </span>

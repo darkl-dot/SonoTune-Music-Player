@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>A quiet home for your music.</strong><br />
+  <strong>You can just press Play.</strong><br />
   A local music player for Windows, built around a pleasant interface, quick access to your songs, and lightweight native playback.
 </p>
 
@@ -19,14 +19,14 @@
 
 ---
 
-SonoTune plays the music you already own. Add a folder, choose a song, and settle in.
+SonoTune plays your local music. Add a folder and pick a song.
 No account, streaming subscription, or cloud library is required.
 
 Its Material You-inspired design combines colors drawn from album artwork, soft shapes,
 rounded controls, gentle motion, and a wavy playback bar. Underneath, a Rust audio engine
 handles playback while virtualized lists keep large libraries manageable.
 
-**Current release:** 0.5.0 · **Platform:** Windows x64 · **Interface:** English and Russian
+**Current release:** v1 · **Platform:** Windows x64 · **Interface:** English and Russian
 
 ## Get started
 

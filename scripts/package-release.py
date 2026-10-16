@@ -30,6 +30,7 @@ def main():
     app = args.app_dir.resolve()
     output = args.output.resolve()
     version = json.loads((project / "package.json").read_text(encoding="utf-8"))["version"]
+    display_version = "v" + (version.split(".")[0] if version.endswith(".0.0") else version)
     executable = app / "SonoTune.exe"
     if output.is_relative_to(app):
         raise SystemExit("The ZIP output directory must be outside the portable directory.")
@@ -52,7 +53,7 @@ def main():
     for name in ["LICENSE", "README.md", "CHANGELOG.md", "VERIFICATION.md"]:
         shutil.copy2(project / name, app / name)
     (app / "QUICK_START.txt").write_text(
-        f"SonoTune {version} - a quiet home for your music\n\n"
+        f"SonoTune {display_version} - local music, press Play\n\n"
         "Extract the entire archive and run SonoTune.exe. No installer is needed.\n"
         "Keep the DLLs, demo folder, and licenses beside the executable.\n"
         "Windows x64 with Microsoft Edge WebView2 Runtime is required.\n\n"
@@ -91,6 +92,7 @@ def main():
     files = {file.name: {"bytes": file.stat().st_size, "sha256": sha256(file)} for file in assets}
     manifest = {
         "version": version,
+        "displayVersion": display_version,
         "platform": "Windows x64",
         "date": datetime.now(timezone.utc).date().isoformat(),
         "executableBytes": executable.stat().st_size,

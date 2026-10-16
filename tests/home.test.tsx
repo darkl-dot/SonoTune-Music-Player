@@ -81,8 +81,8 @@ function css() {
 
 it('plays the last and most played tracks and rerolls a suggestion without starting it', async () => {
   render(<HomeView />);
-  const recent = screen.getByRole('article', { name: 'Последнее проигранное' });
-  const frequent = screen.getByRole('article', { name: 'Самый часто прослушиваемый' });
+  const recent = screen.getByRole('article', { name: 'Недавно играло' });
+  const frequent = screen.getByRole('article', { name: 'Чаще остальных' });
   expect(within(frequent).getByText('5 прослушиваний')).toBeTruthy();
   fireEvent.click(within(recent).getByRole('button', { name: 'Слушать Recent' }));
   await waitFor(() =>
@@ -95,7 +95,7 @@ it('plays the last and most played tracks and rerolls a suggestion without start
   );
   fireEvent.click(within(frequent).getByRole('button', { name: 'Слушать Frequent' }));
   await waitFor(() => expect(service.play).toHaveBeenCalledTimes(2));
-  const suggestion = screen.getByRole('article', { name: 'Может, это?' });
+  const suggestion = screen.getByRole('article', { name: 'А может, это?' });
   expect(within(suggestion).getByText('Random')).toBeTruthy();
   fireEvent.click(within(suggestion).getByRole('button', { name: 'Предложить другой трек' }));
   expect(within(suggestion).getByText('Another')).toBeTruthy();
@@ -108,18 +108,16 @@ it('shows honest empty history and translates cards without changing song titles
   useStore.setState((s) => ({ library: { ...s.library, listening: {} } }));
   render(<HomeView />);
   expect(
-    within(screen.getByRole('article', { name: 'Последнее проигранное' })).getByText(
-      'Всё ещё впереди',
-    ),
+    within(screen.getByRole('article', { name: 'Недавно играло' })).getByText('С чего начнём?'),
   ).toBeTruthy();
   act(() => setLanguage('en'));
-  expect(screen.getByRole('article', { name: 'Last played' })).toBeTruthy();
+  expect(screen.getByRole('article', { name: 'Recently played' })).toBeTruthy();
   expect(screen.getByRole('article', { name: 'Most played' })).toBeTruthy();
   expect(
-    within(screen.getByRole('article', { name: 'Maybe this?' })).getByText('Recent'),
+    within(screen.getByRole('article', { name: 'How about this?' })).getByText('Recent'),
   ).toBeTruthy();
   fireEvent.click(
-    within(screen.getByRole('article', { name: 'Last played' })).getByRole('button', {
+    within(screen.getByRole('article', { name: 'Recently played' })).getByRole('button', {
       name: 'Choose some music',
     }),
   );

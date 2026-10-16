@@ -45,10 +45,12 @@ function HomeCard({
           <span>{label}</span>
         </div>
         <div className={styles.cardCopy}>
-          <span className={styles.cardHint}>{track ? (detail ?? t('В вашем ритме')) : hint}</span>
-          <strong>{track?.title ?? t('Всё ещё впереди')}</strong>
+          <span className={styles.cardHint}>
+            {track ? (detail ?? t('Из твоей библиотеки')) : hint}
+          </span>
+          <strong>{track?.title ?? t('С чего начнём?')}</strong>
           <span className={styles.cardArtist}>
-            {track ? artistName(track) : t('Начните с любимой песни')}
+            {track ? artistName(track) : t('Выбери песню в библиотеке')}
           </span>
         </div>
         <span className={styles.cardPlay} aria-hidden="true">
@@ -129,20 +131,20 @@ export function HomeView({ onPin }: { onPin?(track?: Track): void } = {}) {
         {showBanner && <Hero hasTracks={available.length > 0} onPlay={() => play(available[0])} />}
         <section className={styles.highlights} aria-label={t('Ваша музыка сегодня')}>
           <div className={styles.heading}>
-            <span className="eyebrow">{t('ВАШ МАЛЕНЬКИЙ МУЗЫКАЛЬНЫЙ МИР')}</span>
+            <span className="eyebrow">{t('ВАША МУЗЫКА')}</span>
             <Sparkles size={17} />
           </div>
           <div className={styles.cards} aria-busy={!loaded}>
             <HomeCard
-              label={t('Последнее проигранное')}
-              hint={t('Здесь останется ваша последняя песня')}
+              label={t('Недавно играло')}
+              hint={t('Здесь появится последний включённый трек')}
               track={recent}
               icon={Clock3}
               onPlay={play}
             />
             <HomeCard
-              label={t('Самый часто прослушиваемый')}
-              hint={t('Любимые песни со временем находят себя')}
+              label={t('Чаще остальных')}
+              hint={t('Здесь будут треки, которые ты слушаешь чаще')}
               detail={
                 frequent
                   ? plural(
@@ -157,8 +159,8 @@ export function HomeView({ onPin }: { onPin?(track?: Track): void } = {}) {
               onPlay={play}
             />
             <HomeCard
-              label={t('Может, это?')}
-              hint={t('Немного спонтанности не помешает')}
+              label={t('А может, это?')}
+              hint={t('Выберем что-нибудь из твоей библиотеки')}
               track={suggestion}
               icon={Sparkles}
               onPlay={play}

@@ -172,7 +172,7 @@ export function Sidebar({
         >
           <Settings2 size={17} />
           <span>{t('Настройки')}</span>
-          <span className="version">v0.5.0</span>
+          <span className="version">v1</span>
         </button>
       </div>
     </aside>
@@ -230,7 +230,7 @@ export function Hero({ hasTracks, onPlay }: { hasTracks: boolean; onPlay(): void
           {t('Больше музыки')}
           <span>.</span>
         </h1>
-        <p>{t('Всё, что вы любите. Прямо здесь.')}</p>
+        <p>{t('Можно просто нажать Play.')}</p>
         <button
           className="button hero-button"
           disabled={busy}

@@ -6,7 +6,7 @@ body:
     id: version
     attributes:
       label: SonoTune and Windows versions
-      placeholder: 'SonoTune 0.5.0, Windows 11'
+      placeholder: 'SonoTune v1, Windows 11'
     validations:
       required: true
   - type: textarea

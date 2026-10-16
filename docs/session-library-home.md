@@ -1,4 +1,4 @@
-# Returning to your music — 0.5 behavior
+# Returning to your music — v1 behavior
 
 ## Startup and persistence
 

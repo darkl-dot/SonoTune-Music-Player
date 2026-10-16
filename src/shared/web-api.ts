@@ -119,7 +119,7 @@ const play = async (id: string, queue: string[], ordered = false, position = 0) 
   const db = await database;
   const track: Track | undefined = await db.get('tracks', id);
   const blob: Blob | undefined = await db.get('audio', id);
-  if (!track || !blob) throw new Error(t('Файл недоступен. Добавьте его в библиотеку снова.'));
+  if (!track || !blob) throw new Error(t('Файл недоступен. Проверь, что он на месте.'));
   if (token !== generation) return;
   tickListening();
   listeningActive = false;

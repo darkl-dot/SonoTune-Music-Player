@@ -99,7 +99,7 @@ export function SettingsDialog({ onClose }: { onClose(): void }) {
       </div>
       <div className="settings-about">
         <strong>
-          SonoTune <span>0.5.0</span>
+          SonoTune <span>v1</span>
         </strong>
         <p>{t('Музыка рядом. Без аккаунтов и облака.')}</p>
         <span>

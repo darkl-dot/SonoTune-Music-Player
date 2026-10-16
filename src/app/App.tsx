@@ -376,7 +376,8 @@ export function App() {
               ) : !tracks.length ? (
                 <EmptyLibrary
                   searching={!!query}
-                  playlist={!!playlist || section === 'favorites'}
+                  playlist={!!playlist}
+                  favorites={section === 'favorites'}
                 />
               ) : grouped ? (
                 <GroupGrid

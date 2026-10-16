@@ -69,7 +69,7 @@ it('mounts the complete app, searches, navigates by artist and creates a playlis
   const search = screen.getByRole('textbox', { name: 'Поиск по библиотеке' });
   expect(document.activeElement).toBe(search);
   await user.type(search, 'нет такого трека');
-  await waitFor(() => expect(screen.getByText('Пока ничего не нашлось')).toBeTruthy());
+  await waitFor(() => expect(screen.getByText('Ничего не нашли')).toBeTruthy());
   await user.click(screen.getByRole('button', { name: 'Очистить поиск' }));
   await user.click(screen.getByRole('button', { name: 'Исполнители' }));
   await user.click(await screen.findByRole('button', { name: /Dayroom/ }));
@@ -83,18 +83,21 @@ it('mounts the complete app, searches, navigates by artist and creates a playlis
 
 it('shows the banner only on Home and a themed signature in each category', async () => {
   render(<App />);
+  expect(screen.getByText('Можно просто нажать Play.')).toBeTruthy();
   expect(screen.getByRole('region', { name: 'Ваша музыка' })).toBeTruthy();
   for (const [name, phrase] of [
-    ['Все треки', 'Каждый трек — история'],
-    ['Исполнители', 'Голоса, которые близки'],
-    ['Альбомы', 'Хорошее слушают целиком'],
-    ['Жанры', 'У каждого дня свой жанр'],
-    ['Избранное', 'Любимое всегда рядом'],
+    ['Все треки', 'Все треки на месте'],
+    ['Исполнители', 'Кого послушаем?'],
+    ['Альбомы', 'Послушаем целиком?'],
+    ['Жанры', 'Что сегодня включим?'],
+    ['Избранное', 'Те самые треки'],
     ['Плейлисты', 'Плейлисты — это удобно'],
   ]) {
     fireEvent.click(screen.getByRole('button', { name }));
     expect(screen.queryByRole('region', { name: 'Ваша музыка' })).toBeNull();
     expect(screen.getByText(phrase)).toBeTruthy();
+    if (name === 'Избранное')
+      expect(screen.getByText('Нажми на сердечко, чтобы сохранить песню здесь.')).toBeTruthy();
   }
   fireEvent.click(screen.getByRole('button', { name: 'Главная' }));
   expect(screen.getByRole('region', { name: 'Ваша музыка' })).toBeTruthy();
@@ -111,20 +114,24 @@ it('chooses English on first run, persists it, translates categories and switche
   expect(localStorage.getItem('sonotune-language')).toBe('en');
   expect(document.documentElement.lang).toBe('en');
   expect(screen.getByRole('region', { name: 'Your music' })).toBeTruthy();
+  expect(screen.getByText('You can just press Play.')).toBeTruthy();
   for (const [name, phrase] of [
-    ['All tracks', 'Every track tells a story'],
-    ['Artists', 'Voices that feel like home'],
-    ['Albums', 'Good albums deserve every track'],
-    ['Genres', 'Every day has its own genre'],
-    ['Favorites', 'Keep your favorites close'],
-    ['Playlists', 'Life’s better with playlists'],
+    ['All tracks', 'All your tracks, right here'],
+    ['Artists', 'Who are we listening to?'],
+    ['Albums', 'The whole album?'],
+    ['Genres', 'What are we playing today?'],
+    ['Favorites', 'The good stuff'],
+    ['Playlists', 'Playlists make it easy'],
   ]) {
     fireEvent.click(screen.getByRole('button', { name }));
     expect(screen.getByText(phrase)).toBeTruthy();
+    if (name === 'Favorites')
+      expect(screen.getByText('Tap the heart to save a song here.')).toBeTruthy();
     expect(screen.queryByRole('region', { name: 'Your music' })).toBeNull();
   }
   fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
   const settings = screen.getByRole('dialog', { name: 'Make SonoTune yours' });
+  expect(within(settings).getByText('v1')).toBeTruthy();
   fireEvent.click(within(settings).getByRole('button', { name: /Русский/ }));
   expect(document.documentElement.lang).toBe('ru');
   expect(localStorage.getItem('sonotune-language')).toBe('ru');

@@ -85,7 +85,7 @@ export function PinDialog({ track: initial, onClose }: { track?: Track; onClose(
                 );
               })}
             </div>
-            {!values.length && <p className="dialog-description">{t('Пока ничего не нашлось')}</p>}
+            {!values.length && <p className="dialog-description">{t('Ничего не нашли')}</p>}
           </div>
         </>
       )}

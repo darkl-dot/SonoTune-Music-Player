@@ -138,7 +138,8 @@ export function Queue({ onClose }: { onClose(): void }) {
         ) : (
           <div className="queue-empty">
             <ListMusic size={35} />
-            <p>{t('Выберите трек — и он появится здесь.')}</p>
+            <h3>{t('Пока тихо')}</h3>
+            <p>{t('Включи песню или добавь трек в очередь.')}</p>
           </div>
         )}
       </div>

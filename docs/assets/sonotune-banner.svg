@@ -21,7 +21,7 @@
     <text x="62" y="68" fill="#c9aadd" font-family="Arial, sans-serif" font-size="13" letter-spacing="3">LOCAL MUSIC. YOUR SPACE.</text>
     <text x="58" y="159" fill="#f2eaf6" font-family="Arial, sans-serif" font-size="76" font-weight="700" letter-spacing="-3">SonoTune<tspan fill="#c9aadd">.</tspan></text>
     <text x="62" y="218" fill="#f2eaf6" font-family="Arial, sans-serif" font-size="30" letter-spacing="-.7">Less noise. More music.</text>
-    <text x="62" y="257" fill="#bfb0c8" font-family="Arial, sans-serif" font-size="17">A calm, colorful player for the songs you already own.</text>
+    <text x="62" y="257" fill="#bfb0c8" font-family="Arial, sans-serif" font-size="17">You can just press Play.</text>
     <g transform="translate(62 287)">
       <rect width="124" height="31" rx="15.5" fill="#403148"/><text x="62" y="21" text-anchor="middle" fill="#e4cfee" font-family="Arial, sans-serif" font-size="12">WINDOWS x64</text>
       <rect x="134" width="110" height="31" rx="15.5" fill="#302938"/><text x="189" y="21" text-anchor="middle" fill="#d4c4df" font-family="Arial, sans-serif" font-size="12">LOCAL FIRST</text>
