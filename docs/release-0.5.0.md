@@ -52,3 +52,11 @@ see `VERIFICATION.md` for the full scope.
 Windows is currently the supported release platform. Multichannel Opus, gapless playback,
 crossfade, and real-time filesystem watching are not included. Lightweight operation
 is a design goal rather than a measured FPS or memory guarantee.
+
+## License
+
+SonoTune's application source and binary in this release are licensed under the MIT
+License, copyright (c) 2026 darkl-dot. The attached `LICENSE` supplies the license notice
+for the original 0.5.0 archives. Bundled dependencies and fonts retain their own licenses;
+their notices remain included in the downloads. The original version tag and ZIP files
+are unchanged. Future portable archives include the application license directly.

@@ -2,6 +2,7 @@
 name = "sonotune"
 version = "0.5.0"
 description = "A quiet home for your music"
+license = "MIT"
 authors = ["SonoTune"]
 edition = "2021"
 rust-version = "1.89"

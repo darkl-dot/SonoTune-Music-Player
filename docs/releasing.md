@@ -27,6 +27,7 @@ Create `releases/SonoTune-Windows/` containing:
 - Runtime DLLs required by the chosen Windows toolchain and WebView integration.
 - `demo/`, copied from `public/demo/`.
 - `licenses/` and `THIRD_PARTY_NOTICES.json` for bundled third-party components.
+- The root application `LICENSE`, copied automatically by the packaging script.
 
 The supplied LLVM-MinGW build includes `libunwind.dll` and `WebView2Loader.dll`.
 Do not assume that an executable built with another toolchain has the same DLL needs.

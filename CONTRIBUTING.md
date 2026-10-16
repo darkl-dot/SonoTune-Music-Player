@@ -40,6 +40,6 @@ involved. A minimal synthetic or freely shareable sample is useful.
 
 ## Licensing
 
-An open-source license for the application has not yet been selected. Do not assume
-that making the repository visible later will grant a redistribution license.
-Dependency and font licenses remain applicable.
+SonoTune is licensed under the [MIT License](LICENSE). Contributions to the application
+are provided under the same license. Dependency and font licenses remain applicable;
+include the appropriate notices when adding third-party assets or code.

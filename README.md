@@ -196,8 +196,8 @@ and at normal shutdown; a crash may lose the most recent few seconds.
 
 ## Credits and licensing
 
-SonoTune has not yet been assigned an open-source license. Dependencies retain their
-own licenses. Nunito and Varela Round are distributed under the SIL Open Font License
+SonoTune is licensed under the [MIT License](LICENSE). Copyright (c) 2026 darkl-dot.
+Dependencies retain their own licenses. Nunito and Varela Round are distributed under the SIL Open Font License
 1.1; their notices are included in `public/fonts/` and the Windows download.
 The bundled demo recordings and synthetic test audio were created for SonoTune and
 are provided under CC0. Repository artwork is generated locally as SVG.

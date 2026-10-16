@@ -49,7 +49,7 @@ def main():
         if ("fonts/" + font.name).encode() not in binary:
             raise SystemExit(f"The executable does not contain the bundled font: {font.name}")
     output.mkdir(parents=True, exist_ok=True)
-    for name in ["README.md", "CHANGELOG.md", "VERIFICATION.md"]:
+    for name in ["LICENSE", "README.md", "CHANGELOG.md", "VERIFICATION.md"]:
         shutil.copy2(project / name, app / name)
     (app / "QUICK_START.txt").write_text(
         f"SonoTune {version} - a quiet home for your music\n\n"
