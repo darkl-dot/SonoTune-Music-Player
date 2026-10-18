@@ -53,6 +53,7 @@ import { LanguageDialog } from './LanguageDialog';
 import { HomeView } from '../features/home/HomeView';
 import { PlaylistArtwork } from '../features/playlists/PlaylistArtwork';
 import { TitleBar } from './TitleBar';
+import { DesktopBridge } from './DesktopBridge';
 import { PinDialog } from '../features/home/PinDialog';
 
 export function App() {
@@ -228,6 +229,7 @@ export function App() {
   return (
     <div className={`${styles.app} ${desktop ? styles.desktop : ''}`}>
       <TitleBar />
+      <DesktopBridge />
       <div className={styles.workspace}>
         <Sidebar
           setDialog={setDialog}

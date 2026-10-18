@@ -42,6 +42,8 @@ def main():
     if not list(app.glob("*.dll")):
         raise SystemExit("No runtime DLLs found in the assembled Windows folder.")
     binary = executable.read_bytes()
+    if b"app.sonotune.qa112" in binary:
+        raise SystemExit("A QA executable cannot be packaged as the public release.")
     html = (project / "dist/index.html").read_text(encoding="utf-8")
     for asset in re.findall(r'/assets/([^" ]+\.(?:js|css))', html):
         if asset.encode() not in binary:
@@ -52,6 +54,7 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     for name in ["LICENSE", "README.md", "CHANGELOG.md", "VERIFICATION.md"]:
         shutil.copy2(project / name, app / name)
+    shutil.copytree(project / "docs", app / "docs", dirs_exist_ok=True)
     for notice in (project / "docs/licenses").glob("*.txt"):
         shutil.copy2(notice, app / "licenses" / notice.name)
     (app / "QUICK_START.txt").write_text(
@@ -62,6 +65,9 @@ def main():
         "Add folder: import your local MP3, FLAC, WAV, OGG, OPUS, M4A, or AAC files.\n"
         "Demo: try six original short recordings.\n"
         "Settings: language, appearance, startup page, banner, scan interval, and gapless.\n"
+        "Close hides the app in the tray by default; use the tray menu to quit.\n"
+        "Settings: close-to-tray, optional Windows startup, and Technical tools.\n"
+        "Register Open with from Technical settings; choose defaults in Windows.\n"
         "Gapless is enabled by default. AAC-LC/ALAC M4A and ADTS AAC are supported.\n"
         "Playback is restored on pause. Press Play to continue.\n\n"
         "Local data: %APPDATA%\\app.sonotune.player\\\n"

@@ -201,6 +201,8 @@ svg {
   margin: 0 16px 13px;
 }
 .nav-item {
+  position: relative;
+  isolation: isolate;
   width: 100%;
   height: 44px;
   display: flex;
@@ -221,12 +223,77 @@ svg {
   white-space: nowrap;
 }
 .nav-item:hover {
-  background: var(--hover);
+  background: transparent;
 }
 .nav-item.active {
-  background: var(--primary-container);
+  background: transparent;
   color: var(--on-container);
   font-weight: 650;
+}
+.nav-item > .nav-shape {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+  overflow: visible;
+  transition: transform 180ms ease;
+}
+.nav-shape path {
+  fill: transparent;
+  transition: fill 180ms ease;
+}
+.nav-item:hover .nav-shape path {
+  fill: var(--hover);
+}
+.nav-item.active .nav-shape path {
+  fill: var(--primary-container);
+}
+.nav-item:active > .nav-shape {
+  transform: scale(0.975);
+}
+.nav-item:focus-visible .nav-shape path {
+  stroke: var(--primary);
+  stroke-width: 1;
+}
+.technical-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.technical-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.technical-version {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.desktop-preferences {
+  margin: 22px 0;
+}
+.diagnostic-report {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  color: var(--text-muted);
+}
+.diagnostic-report textarea {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  padding: 14px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--outline);
+  border-radius: 16px;
+  font:
+    12px/1.5 ui-monospace,
+    monospace;
 }
 .nav-count {
   margin-left: auto;

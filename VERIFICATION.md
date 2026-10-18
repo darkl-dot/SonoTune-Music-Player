@@ -1,22 +1,41 @@
-# Verification — SonoTune v1.1.0
+# Verification — SonoTune v1.1.2
 
-Verified on Windows x64 on October 16, 2026.
+Verified on Windows x64 on October 18, 2026.
 
 ## Automated checks
 
-**122 checks passed:** 77 frontend/browser-adapter tests, 44 regular Rust tests, and
-one separately executed native Windows media-session integration test.
+**135 checks passed:** 83 frontend/browser-adapter tests, 50 regular Rust tests, and
+two separately executed native Windows integration tests.
 
 ```sh
 pnpm test
 pnpm build
 cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 cargo test --manifest-path src-tauri/Cargo.toml --lib
-cargo test --manifest-path src-tauri/Cargo.toml --lib native_session_round_trip -- --ignored --nocapture
+cargo test --manifest-path src-tauri/Cargo.toml --lib native_ -- --ignored --nocapture
 ```
 
-The native integration test is normally ignored because it creates a temporary real
-Windows media session. It was explicitly run and passed for this release.
+The two native integration tests are normally ignored because they create a temporary
+real Windows media session or register an audio-device notification. Both were
+explicitly run and passed. The device-notification check does not change physical devices.
+
+## Desktop integration coverage
+
+- Closing hides the window only when the tray is available; the setting and explicit
+  Quit allow a full exit. A failed tray cannot leave an inaccessible hidden application.
+- Per-user startup registration handles Unicode/quoted paths, enabling, disabling,
+  and moved executable paths. Tests use isolated registry keys, not the real Run key.
+- Open-with registration covers all seven extensions, quotes file arguments, and
+  preserves an existing default player. Tests use isolated registry keys.
+- External paths are validated and deduplicated; importing reuses existing track IDs
+  without adding parent directories to the scan list. Frontend tests cover initial
+  file delivery, event delivery, and a late initial response racing a newer request.
+- Device-loss handling in the real decoder's silent mixer preserves position, queue,
+  and listening-session accounting. Repeated and stale-stream callbacks are ignored.
+- Desktop settings read native state, report failed changes, disable close-to-tray
+  when unavailable, and provide manual diagnostic copying when the clipboard fails.
+- Navigation silhouettes remain distinct and stable through rerenders. Real second-process
+  forwarding and tray input are implemented but were not manually exercised in this run.
 
 ## Session, library, and Home coverage
 
@@ -91,7 +110,7 @@ failures are reported without stopping local playback.
 
 ## Build and package
 
-The supplied Windows executable is an optimized v1.1.0 build produced using Rust 1.99,
+The supplied Windows executable is an optimized v1.1.2 build produced using Rust 1.99,
 LLVM-MinGW, and Node.js 24.19. Frontend JavaScript/CSS filenames and all six offline
 font subsets are verified inside the executable. The portable ZIP includes its DLLs,
 demo files, documentation, and third-party license notices. libopus is linked statically.
@@ -101,9 +120,16 @@ when packaging. `build-info.json` and `SHA256SUMS.txt` in the release identify t
 
 ## Verification limits
 
-Native-window visual review and physical Windows drag-and-drop are not confirmed for
-v1.1.0 in this run. The earlier local preview was blocked by saved browser permissions;
-that restriction was not bypassed. The user's running instance was left untouched.
+An isolated native QA window launched successfully with separate application data,
+and its first-run welcome screen was captured. The user stopped Computer Use with
+Escape before the full interface/tray review; no further app input was issued.
+The user's running player was left untouched. Full navigation-shape appearance,
+tray clicks, second-launch restoration, Explorer interaction, and physical drag-and-drop
+are not claimed as manually verified.
+
+Physical audio unplug/replug and startup after Windows login were not exercised.
+The implementation uses endpoint notifications and stream errors, but actual driver,
+Bluetooth, and analog-jack behavior can vary.
 
 The Windows media API test confirms integration at the SMTC/GSMTC level, not the
 appearance of every third-party flyout. Real-device listening, multiple display DPI

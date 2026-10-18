@@ -6,6 +6,7 @@ import { desktop } from '../shared/api';
 import type { Settings } from '../shared/types';
 import { LanguageOptions } from './LanguageDialog';
 import { LibraryPreferences } from './LibraryPreferences';
+import { DesktopPreferences } from './DesktopPreferences';
 
 export function SettingsDialog({ onClose }: { onClose(): void }) {
   useLanguage();
@@ -19,6 +20,7 @@ export function SettingsDialog({ onClose }: { onClose(): void }) {
       <LanguageOptions />
       <p className="field-hint">{t('Шрифт: Nunito')}</p>
       <LibraryPreferences />
+      <DesktopPreferences />
       <span className="settings-label">{t('Оформление')}</span>
       <div className="appearance-options">
         {(
@@ -98,9 +100,7 @@ export function SettingsDialog({ onClose }: { onClose(): void }) {
         )}
       </div>
       <div className="settings-about">
-        <strong>
-          SonoTune <span>v1.1.0</span>
-        </strong>
+        <strong>SonoTune {!desktop && <span>v1.1.2</span>}</strong>
         <p>{t('Музыка рядом. Без аккаунтов и облака.')}</p>
         <span>
           {desktop

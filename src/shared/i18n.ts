@@ -34,6 +34,30 @@ export function setLanguage(language: Language) {
 }
 
 export const english: Record<string, string> = {
+  'Работа приложения': 'App behavior',
+  Версия: 'Version',
+  'Трей недоступен. Крестик полностью закроет приложение.':
+    'The tray is unavailable. Closing the window will quit the app.',
+  'Путь к SonoTune слишком длинный для автозапуска Windows. Переместите папку плеера ближе к корню диска.':
+    'The SonoTune path is too long for Windows startup. Move the player folder closer to the drive root.',
+  'Сворачивать в трей при закрытии': 'Close to the system tray',
+  'Автозапуск при старте системы': 'Launch at system startup',
+  'Из трея можно открыть плеер, поставить музыку на паузу или полностью выйти.':
+    'Open the player, pause your music, or quit from the tray menu.',
+  Техническое: 'Technical',
+  'Открыть папку данных': 'Open data folder',
+  'Скопировать диагностику': 'Copy diagnostics',
+  Диагностика: 'Diagnostics',
+  'Диагностика скопирована': 'Diagnostics copied',
+  'Не удалось скопировать. Текст можно выделить ниже.':
+    'Could not copy. You can select the text below.',
+  'Добавить в «Открыть с помощью»': 'Add to “Open with”',
+  'Обновить «Открыть с помощью»': 'Update “Open with”',
+  'SonoTune добавлен в «Открыть с помощью»': 'SonoTune added to “Open with”',
+  'Выбери SonoTune плеером по умолчанию в Windows, чтобы открывать музыку двойным щелчком.':
+    'Choose SonoTune as your default player in Windows to open music with a double-click.',
+  'Звуковое устройство изменилось. Нажмите Play, чтобы продолжить.':
+    'The audio device changed. Press Play to continue.',
   'При запуске открывать': 'Open at startup',
   'Стартовая страница': 'Startup page',
   'Последний открытый раздел': 'Last opened section',

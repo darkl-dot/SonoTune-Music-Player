@@ -98,6 +98,20 @@ Removing a song from the library does **not** delete its audio file. SonoTune do
 upload your music or library to a service. Fonts are bundled for offline use: **Nunito**
 for Russian and **Varela Round** for English, with Nunito providing Cyrillic fallback.
 
+## Windows desktop integration
+
+Closing the window keeps SonoTune in the tray by default. Settings → **App behavior**
+can disable that or enable startup at Windows login. The tray menu provides Open,
+Play/Pause, and a full Quit action. Starting another copy restores the existing window.
+
+**Technical** settings show the version, open the data directory, copy diagnostics,
+and register the portable app in Windows “Open with”. You choose the default player
+in Windows yourself. Audio interruptions pause playback; press Play after reconnecting
+to restore the position on the current output.
+
+See [desktop integration](desktop-integration.md) for behavior, path requirements,
+and the distinction between paused startup and explicitly opening an audio file.
+
 ## Current boundaries
 
 Windows is the supported release platform. Linux and macOS builds are future work.

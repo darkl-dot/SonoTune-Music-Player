@@ -43,7 +43,7 @@ folder, and press Play. Windows x64 and Microsoft Edge WebView2 Runtime are requ
 - **A look you can change:** artwork colors, fixed palettes, light/dark appearance, and gentle motion.
 - **Your way to listen:** playlists with custom covers, favorites, pinned tracks, and an editable queue.
 - **Pick up later:** saved playback position and queue, restored on pause; choose your startup page.
-- **Windows integration:** track information, artwork, and controls in the system media session.
+- **Windows integration:** system media controls, a tray menu, optional startup, and “Open with” support.
 - **Local tools:** metadata editing with backups, folder rescanning, offline English/Russian fonts.
 
 No account or cloud library required. Windows is the current release platform.

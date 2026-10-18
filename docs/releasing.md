@@ -18,6 +18,8 @@ cargo build --manifest-path src-tauri/Cargo.toml --release --features custom-pro
 
 Do not change frontend assets while the native release build is running. Otherwise,
 the executable and the current frontend output may refer to different versions.
+Build with the production identifier `app.sonotune.player`. A temporary QA configuration
+must never be used for a release; the packager rejects the isolated QA identifier.
 
 ## Assemble the portable directory
 
@@ -40,7 +42,7 @@ Commit the intended source tree first. Then, with Python 3.11 or newer:
 python scripts/package-release.py
 ```
 
-The script copies the English release documentation, writes a quick-start note,
+The script copies the English documentation and README images, writes a quick-start note,
 packages the portable directory and committed Git source files, checks ZIP CRCs and executable
 equality, and creates `build-info.json` and `SHA256SUMS.txt`. It does not build or
 download native dependencies. Build outputs, local data, and dependency directories

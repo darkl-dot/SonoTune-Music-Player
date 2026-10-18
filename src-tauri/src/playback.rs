@@ -18,19 +18,28 @@ use std::{
     },
     time::{Duration, Instant},
 };
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 trait PlaybackEvents: Send + Sync {
+    fn diagnostic(&self, _message: String) {}
     fn playback(&self, state: &Playback);
     fn error(&self, message: String);
     fn listening(&self, update: ListeningUpdate);
 }
 struct AppEvents(AppHandle);
 impl PlaybackEvents for AppEvents {
+    fn diagnostic(&self, message: String) {
+        if let Some(state) = self.0.try_state::<crate::desktop::DesktopState>() {
+            state.record(&message);
+        }
+    }
     fn playback(&self, state: &Playback) {
         let _ = self.0.emit("playback", state);
     }
     fn error(&self, message: String) {
+        if let Some(state) = self.0.try_state::<crate::desktop::DesktopState>() {
+            state.record(&message);
+        }
         let _ = self.0.emit("playback-error", message);
     }
     fn listening(&self, update: ListeningUpdate) {
@@ -39,6 +48,11 @@ impl PlaybackEvents for AppEvents {
 }
 
 pub enum Message {
+    DeviceLost {
+        generation: Option<u64>,
+        message: String,
+    },
+    Inspect(SyncSender<Playback>),
     Boundary,
     Media(MediaAction),
     Shutdown,
@@ -65,6 +79,7 @@ impl AudioEngine {
         let (send, receive) = mpsc::channel();
         let system_send = send.clone();
         let audio_send = send.clone();
+        let device_send = send.clone();
         let thread = std::thread::Builder::new()
             .name("sonotune-audio".into())
             .spawn(move || {
@@ -72,7 +87,19 @@ impl AudioEngine {
                     Ok(session) => (Some(session), None),
                     Err(error) => (None, Some(error)),
                 };
+                let _device_monitor = match crate::device_monitor::DeviceMonitor::start(device_send)
+                {
+                    Ok(monitor) => Some(monitor),
+                    Err(error) => {
+                        if let Some(state) = app.try_state::<crate::desktop::DesktopState>() {
+                            state.record(&format!("Audio device monitoring: {error}"));
+                        }
+                        None
+                    }
+                };
                 let mut engine = Engine {
+                    recovering: false,
+                    output_generation: 0,
                     wake: Some(audio_send),
                     gapless: true,
                     next_slot: None,
@@ -115,6 +142,15 @@ impl AudioEngine {
             }
         }
     }
+    pub fn snapshot(&self) -> Result<Playback, String> {
+        let (send, receive) = mpsc::sync_channel(1);
+        self.send
+            .send(Message::Inspect(send))
+            .map_err(|e| e.to_string())?;
+        receive
+            .recv_timeout(Duration::from_secs(2))
+            .map_err(|e| e.to_string())
+    }
     pub fn command(&self, command: PlayerCommand) -> Result<(), String> {
         let (send, receive) = mpsc::sync_channel(1);
         self.send
@@ -141,6 +177,8 @@ impl AudioEngine {
     }
 }
 struct Engine {
+    recovering: bool,
+    output_generation: u64,
     wake: Option<Sender<Message>>,
     gapless: bool,
     next_slot: Option<crate::gapless::NextSlot>,
@@ -265,7 +303,21 @@ impl Engine {
         if self.sink.as_ref().is_none_or(Sink::empty) {
             if let Some(id) = self.state.track_id.clone() {
                 let position = self.pending_position.unwrap_or(0.0);
-                self.load(&id, false)?;
+                let previous_session = if self.recovering {
+                    self.session.take()
+                } else {
+                    None
+                };
+                if let Err(error) = self.load(&id, false) {
+                    if previous_session.is_some() {
+                        self.session = previous_session;
+                    }
+                    return Err(error);
+                }
+                if previous_session.is_some() {
+                    self.session = previous_session;
+                }
+                self.recovering = false;
                 if position > 0.0 {
                     let seek = self
                         .sink
@@ -389,6 +441,7 @@ impl Engine {
         // Keep a fixed format across boundaries, including mixed-rate albums.
         sink.append(audio::normalized(decoder));
         self.next_slot.take();
+        self.recovering = false;
         self.preload_failed = None;
         self.tick();
         if let Some(old) = self.sink.take() {
@@ -412,6 +465,42 @@ impl Engine {
         }
         Ok(())
     }
+    fn device_event(&mut self, generation: Option<u64>, error: &str) {
+        if generation.is_none_or(|value| value == self.output_generation) {
+            self.device_lost(error);
+        }
+    }
+    fn device_lost(&mut self, error: &str) {
+        if self.sink.is_none() {
+            return;
+        }
+        self.stream.take();
+        self.sync_boundary();
+        self.tick();
+        let position = self
+            .sink
+            .as_ref()
+            .unwrap()
+            .get_pos()
+            .as_secs_f64()
+            .min(self.state.duration);
+        if let Some(slot) = &self.next_slot {
+            let _ = slot.replace(None);
+        }
+        self.next_slot.take();
+        self.sink.take();
+        self.pending_position = Some(position);
+        self.state.position = position;
+        self.state.playing = false;
+        self.recovering = true;
+        self.checkpoint_force = true;
+        if let Some(session) = &mut self.session {
+            session.seek(position, self.state.duration, Instant::now());
+        }
+        self.events
+            .diagnostic(format!("Audio output interrupted: {error}"));
+        self.error("Звуковое устройство изменилось. Нажмите Play, чтобы продолжить.".into());
+    }
     fn create_sink(&mut self) -> Result<Sink, String> {
         #[cfg(test)]
         if let Some(mixer) = &self.test_mixer {
@@ -420,8 +509,21 @@ impl Engine {
             return Ok(sink);
         }
         if self.stream.is_none() {
+            self.output_generation = self.output_generation.wrapping_add(1);
+            let generation = self.output_generation;
+            let send = self.wake.clone();
             self.stream = Some(
-                OutputStreamBuilder::open_default_stream()
+                OutputStreamBuilder::from_default_device()
+                    .map_err(|e| format!("Не удалось открыть звуковое устройство: {e}"))?
+                    .with_error_callback(move |error| {
+                        if let Some(send) = &send {
+                            let _ = send.send(Message::DeviceLost {
+                                generation: Some(generation),
+                                message: error.to_string(),
+                            });
+                        }
+                    })
+                    .open_stream_or_fallback()
                     .map_err(|e| format!("Не удалось открыть звуковое устройство: {e}"))?,
             );
         }
@@ -576,6 +678,7 @@ impl Engine {
                 self.state.playing = false;
             }
             PlayerCommand::Stop => {
+                self.recovering = false;
                 self.next_slot.take();
                 self.pending_position = None;
                 self.sink.take();
@@ -900,6 +1003,17 @@ impl Engine {
             self.tick();
             self.sync_boundary();
             match incoming {
+                Ok(Message::DeviceLost {
+                    generation,
+                    message,
+                }) => {
+                    self.device_event(generation, &message);
+                    self.emit();
+                }
+                Ok(Message::Inspect(reply)) => {
+                    self.emit();
+                    let _ = reply.send(self.state.clone());
+                }
                 Ok(Message::Boundary) => {
                     self.prepare_next();
                     self.finish_ended();
@@ -1021,6 +1135,7 @@ pub fn next_index(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::Ordering;
     #[derive(Default)]
     struct RecordedEvents {
         errors: Mutex<Vec<String>>,
@@ -1058,6 +1173,8 @@ mod tests {
             let (mixer, output) = rodio::mixer::mixer(2, 48_000);
             let events = Arc::new(RecordedEvents::default());
             let engine = Engine {
+                recovering: false,
+                output_generation: 0,
                 wake: None,
                 gapless: false,
                 next_slot: None,
@@ -1172,6 +1289,58 @@ mod tests {
         let saved_again = db.state::<SavedPlayback>("playback").unwrap().unwrap();
         assert_eq!(saved_again.queue, saved.queue);
         assert!(saved_again.position >= 0.045);
+    }
+    #[test]
+    fn device_loss_preserves_queue_position_and_resumes_without_counting_a_new_play() {
+        let mut h = Harness::new();
+        h.engine.gapless = true;
+        h.start(0, Repeat::All);
+        for _ in 0..12000 {
+            h.output.next();
+        }
+        let before = h.engine.sink.as_ref().unwrap().get_pos().as_secs_f64();
+        let queue = h.engine.state.queue.clone();
+        h.engine.output_generation = 2;
+        h.engine
+            .device_event(Some(1), "late error from a closed stream");
+        assert!(h.engine.sink.is_some());
+        assert!(h.events.errors.lock().unwrap().is_empty());
+        h.engine.device_event(Some(2), "simulated disconnection");
+        h.engine.emit();
+        assert!(
+            h.engine.sink.is_none() && h.engine.stream.is_none() && h.engine.next_slot.is_none()
+        );
+        assert!(!h.engine.state.playing);
+        assert_eq!(h.engine.state.position, before);
+        assert_eq!(h.engine.state.queue, queue);
+        h.engine.device_lost("duplicate callback");
+        assert_eq!(h.events.errors.lock().unwrap().len(), 1);
+        let done = std::sync::atomic::AtomicBool::new(false);
+        std::thread::scope(|scope| {
+            let output = &mut h.output;
+            let done = &done;
+            scope.spawn(move || {
+                while !done.load(Ordering::Relaxed) {
+                    for _ in 0..128 {
+                        output.next();
+                    }
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+            });
+            let result = h.engine.resume();
+            done.store(true, Ordering::Relaxed);
+            result.unwrap();
+        });
+        h.engine.emit();
+        assert!(h.engine.state.playing);
+        assert_eq!(h.engine.state.queue, queue);
+        assert!(h.engine.state.position >= before - 0.005);
+        assert_eq!(
+            h.engine.db.load().unwrap().listening[&h.ids[0]].play_count,
+            0
+        );
+        assert!(h.engine.session.as_ref().unwrap().started);
+        assert!(h.engine.db.load().unwrap().listening[&h.ids[0]].last_played > 0);
     }
     #[test]
     fn restore_filters_stale_ids_and_never_applies_a_deleted_tracks_position_to_the_next_song() {

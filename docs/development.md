@@ -4,8 +4,8 @@ The application uses **Tauri 2, React, TypeScript, Vite, Zustand, and Rust**. It
 are custom components, without a heavyweight UI component library. Playback uses Rodio
 and Symphonia, with libopus for Ogg Opus. Metadata uses Lofty; persistence uses SQLite.
 
-For Windows development, install Node.js 22 or newer, pnpm 11, a current stable Rust
-toolchain, CMake, and the native tools required by
+For Windows development, install Node.js 22 or newer, pnpm 11, Rust 1.90 or newer,
+CMake, and the native tools required by
 [Tauri's Windows prerequisites](https://v2.tauri.app/start/prerequisites/#windows).
 The supplied release was built with Rust 1.99 and LLVM-MinGW. A standard MSVC build uses
 the Visual Studio C++ build tools instead; platform/toolchain dependencies may differ.
@@ -30,17 +30,18 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib
 pnpm desktop:build
 ```
 
-The Windows media-session integration test is opt-in because it creates a real temporary
-system media session:
+Native integration checks are opt-in: they create a temporary Windows media session
+and register/release a real audio-endpoint notification without changing devices:
 
 ```sh
-cargo test --manifest-path src-tauri/Cargo.toml --lib native_session_round_trip -- --ignored --nocapture
+cargo test --manifest-path src-tauri/Cargo.toml --lib native_ -- --ignored --nocapture
 ```
 
 See [verification notes](../VERIFICATION.md) for what was tested and its limits, and
 [CONTRIBUTING.md](../CONTRIBUTING.md) for development guidance.
 Portable packaging is described in [the release guide](releasing.md).
 Native gapless behavior and codec boundaries are described in [the format notes](gapless-and-formats.md).
+Tray, startup, file opening, and device recovery are described in [desktop integration](desktop-integration.md).
 
 ## Project structure
 

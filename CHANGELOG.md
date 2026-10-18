@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.1.2 — 2026-10-18
+
+- Closing the window now keeps SonoTune in the system tray by default. Settings can restore full exit on close.
+- Tray actions: open the player, Play/Pause, and quit completely. Menu labels follow the interface language.
+- Optional Windows startup for the current user, disabled by default. Playback still restores paused.
+- Single-instance handling: another launch restores the existing window and forwards audio-file arguments.
+- Open audio files from Explorer or the command line. An explicit Settings action registers SonoTune in Windows “Open with” without changing existing defaults.
+- Audio output errors and default-device changes pause playback while preserving the queue, position, and listening session. Play reconnects to the current output device.
+- A Technical section with version information, data-folder access, and copyable diagnostics with a selectable fallback.
+- Six soft Material-inspired navigation silhouettes, shuffled once per session, with themed hover/selection and smooth press transitions.
+- English/Russian labels and regression tests for desktop preferences, external files, registry operations, device recovery, and navigation shapes.
+
+See [desktop behavior](docs/desktop-integration.md) for portable-path requirements and verification limits.
+
 ## v1.1.0 — 2026-10-16
 
 - Gapless playback, enabled by default with a persistent Settings switch in English and Russian.

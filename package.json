@@ -2,7 +2,7 @@
   "name": "sonotune",
   "private": true,
   "license": "MIT",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 1420 --strictPort",

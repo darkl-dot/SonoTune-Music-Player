@@ -132,7 +132,7 @@ it('chooses English on first run, persists it, translates categories and switche
   }
   fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
   const settings = screen.getByRole('dialog', { name: 'Make SonoTune yours' });
-  expect(within(settings).getByText('v1.1.0')).toBeTruthy();
+  expect(within(settings).getByText('v1.1.2')).toBeTruthy();
   fireEvent.click(within(settings).getByRole('button', { name: /Русский/ }));
   expect(document.documentElement.lang).toBe('ru');
   expect(localStorage.getItem('sonotune-language')).toBe('ru');
