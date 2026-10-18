@@ -1,10 +1,10 @@
 .player {
-  --player-height: 112px;
+  --player-height: 100px;
   height: var(--player-height);
   min-height: var(--player-height);
   max-height: var(--player-height);
   flex: 0 0 var(--player-height);
-  padding: 12px 24px;
+  padding: 6px 24px;
   display: grid;
   grid-template-areas: 'track transport extras';
   grid-template-columns: minmax(0, 1fr) minmax(300px, 1.45fr) minmax(180px, 1fr);
@@ -46,6 +46,11 @@
   min-width: 0;
   flex: 1;
 }
+.trackActions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
 .metadata strong,
 .currentTitle,
 .metadata span {
@@ -83,7 +88,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 4px;
+  gap: 10px;
 }
 .controls {
   display: flex;
@@ -151,20 +156,23 @@
   height: 26px;
   top: 0;
   left: 0;
+  right: 0;
   overflow: hidden;
   background: var(--player);
 }
 .waveFill svg {
+  position: absolute;
+  inset: 0 auto 0 0;
   height: 26px;
-  width: 600px;
+  width: calc(100% + 30px);
   max-width: none;
 }
 .waveFill path {
   fill: none;
   stroke: var(--primary);
   stroke-width: 3;
-  vector-effect: non-scaling-stroke;
   stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
 }
 .moving .waveFill svg {
   animation: wave-flow 2.4s linear infinite;
@@ -233,7 +241,7 @@
   .volume {
     width: 65px;
   }
-  .current > button {
+  .trackActions > button:first-child {
     display: none;
   }
   .controls {

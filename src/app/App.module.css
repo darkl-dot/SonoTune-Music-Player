@@ -76,7 +76,7 @@
   padding: 0 30px 0 12px;
 }
 .topbar {
-  height: 90px;
+  height: 64px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -279,6 +279,17 @@
   }
 }
 @media (max-width: 900px) {
+  .topbar:has(:global(.library-toolbar)) {
+    height: auto;
+    min-height: 64px;
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding-block: 8px;
+  }
+  .topbar > :global(.library-toolbar) {
+    flex-basis: 100%;
+    order: 4;
+  }
   .sidebar {
     width: 185px;
     padding-inline: 9px;
@@ -371,7 +382,7 @@
     display: none;
   }
   .topbar {
-    height: 75px;
+    height: 64px;
   }
 }
 @media (max-width: 480px) {

@@ -3,7 +3,6 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { DesktopPreferences } from '../src/app/DesktopPreferences';
 import { DesktopBridge } from '../src/app/DesktopBridge';
-import { NavigationShape, shapePath } from '../src/app/NavigationShape';
 import { useStore } from '../src/app/store';
 import { setLanguage } from '../src/shared/i18n';
 
@@ -45,7 +44,7 @@ beforeEach(() => {
   native.configure.mockImplementation(async (patch) => ({ ...defaults, ...patch }));
   native.registerOpenWith.mockResolvedValue({ ...defaults, associationsRegistered: true });
   native.openDataFolder.mockResolvedValue(undefined);
-  native.diagnostics.mockResolvedValue('SonoTune v1.1.2\nPlaying: false\nRecent errors: None');
+  native.diagnostics.mockResolvedValue('SonoTune v1.1.3\nPlaying: false\nRecent errors: None');
   native.onExternal.mockResolvedValue(() => {});
   native.pendingExternal.mockResolvedValue(null);
   useStore.setState({
@@ -99,7 +98,7 @@ it('offers diagnostics with a selectable fallback, opens the data folder and reg
   await waitFor(() =>
     expect(
       (screen.getByRole('textbox', { name: 'Диагностика' }) as HTMLTextAreaElement).value,
-    ).toContain('v1.1.2'),
+    ).toContain('v1.1.3'),
   );
   expect(native.registerOpenWith).not.toHaveBeenCalled();
   const button = screen.getByRole('button', { name: 'Добавить в «Открыть с помощью»' });
@@ -154,16 +153,4 @@ it('a later external request wins over an older pending-startup reply', async ()
   act(() => receive('new'));
   await act(async () => complete('stale'));
   expect(useStore.getState().reveal?.id).toBe('new');
-});
-it('navigation has six distinct smooth shapes and never reshuffles on rerender', () => {
-  const variants = Array.from({ length: 6 }, (_, i) => shapePath(i));
-  expect(new Set(variants).size).toBe(6);
-  for (const path of variants) {
-    expect(path).toMatch(/^M.*C.*Z$/);
-    expect(path).not.toMatch(/NaN|Infinity/);
-  }
-  const view = render(<NavigationShape seed="albums" />);
-  const before = view.container.innerHTML;
-  view.rerender(<NavigationShape seed="albums" />);
-  expect(view.container.innerHTML).toBe(before);
 });

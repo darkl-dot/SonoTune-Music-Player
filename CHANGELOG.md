@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.1.3 — 2026-10-18
+
+- Remove the library status footer to give more space to tracks.
+- Show the source folder in track context menus, available from both right-click and the three-dot button.
+- Restore rounded capsule backgrounds in sidebar navigation.
+- Draw the animated playback wave as a single continuous path up to the seek thumb at every window width, without tiled-image seams.
+- Increase the space between playback buttons and the seek bar by 6 px.
+- Compact category headers and the top bar while retaining search, metadata, sorting, and playback controls.
+- Move sorting and list/grid controls into the top bar beside search, eliminating their separate desktop row.
+- Reduce the desktop player to 100 px by trimming outer padding; retain control sizes, gaps, and column positions.
+- Pin a song from the bottom player or any Home highlight card, with the existing optional-caption editor.
+
 ## v1.1.2 — 2026-10-18
 
 - Closing the window now keeps SonoTune in the system tray by default. Settings can restore full exit on close.

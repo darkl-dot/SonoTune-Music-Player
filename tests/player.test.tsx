@@ -6,6 +6,7 @@ import { useStore } from '../src/app/store';
 import type { Track } from '../src/shared/types';
 import playerCss from '../src/features/player/Player.module.css?inline';
 import globalCss from '../src/app/styles.css?raw';
+import styles from '../src/features/player/Player.module.css';
 
 const service = vi.hoisted(() => ({
   toggle: vi.fn(async () => {}),
@@ -95,7 +96,7 @@ it.each([360, 800, 1280, 1920])(
     expect(getComputedStyle(image).height).toBe('100%');
     const panel = getComputedStyle(screen.getByRole('contentinfo', { name: 'Плеер' }));
     expect(panel.display).toBe('grid');
-    expect(panel.height).toBe(width <= 760 ? '168px' : '112px');
+    expect(panel.height).toBe(width <= 760 ? '168px' : '100px');
     expect(panel.maxHeight).toBe(panel.height);
     for (const name of [
       'Пауза',
@@ -120,11 +121,68 @@ it.each([360, 800, 1280, 1920])(
 
 it('selects a mode with Space without also activating the global play/pause shortcut', async () => {
   render(<Player onQueue={() => {}} />);
-  fireEvent.keyDown(screen.getByLabelText('Режим воспроизведения: Играть список'), { key: 'Enter' });
+  fireEvent.keyDown(screen.getByLabelText('Режим воспроизведения: Играть список'), {
+    key: 'Enter',
+  });
   fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Home' });
   fireEvent.keyDown(screen.getByRole('listbox'), { key: ' ', code: 'Space' });
   await waitFor(() => expect(service.mode).toHaveBeenCalledWith(false, 'single'));
   expect(service.toggle).not.toHaveBeenCalled();
+});
+
+it('opens pin editing for the current song without changing playback', () => {
+  const onPin = vi.fn();
+  render(<Player onQueue={() => {}} onPin={onPin} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Закрепить на главной' }));
+  expect(onPin).toHaveBeenCalledWith(track);
+  expect(service.toggle).not.toHaveBeenCalled();
+  act(() =>
+    useStore.setState((s) => ({
+      library: { ...s.library, pins: [{ trackId: track.id, label: '' }] },
+    })),
+  );
+  expect(
+    screen.getByRole('button', { name: 'Изменить закрепление' }).classList.contains('is-active'),
+  ).toBe(true);
+});
+
+it('keeps one continuous wave through the thumb after resizing beyond the old 600px limit', () => {
+  let width = 331.5;
+  let resize!: () => void;
+  const measure = vi
+    .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+    .mockImplementation(() => ({ width }) as DOMRect);
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(callback: () => void) {
+        resize = callback;
+      }
+      observe() {}
+      disconnect() {}
+    },
+  );
+  try {
+    const { container } = render(<Player onQueue={() => {}} />);
+    const fill = container.querySelector('.' + styles.waveFill)! as HTMLElement;
+    for (width of [331.5, 2304, 4096]) {
+      act(() => resize());
+      const paths = fill.querySelectorAll('path');
+      expect(paths.length).toBe(1);
+      const path = paths[0].getAttribute('d')!;
+      expect(path.match(/M/g)?.length).toBe(1);
+      const end = Number(path.match(/T(\d+) 13$/)?.[1]);
+      expect(end - 30).toBeGreaterThanOrEqual(width);
+    }
+    act(() => useStore.setState((s) => ({ playback: { ...s.playback, position: 239 } })));
+    expect(fill.style.clipPath).toContain('inset(0 ');
+    expect(
+      screen.getByLabelText('Позиция воспроизведения').getAttribute('aria-valuetext'),
+    ).toContain('3:59');
+  } finally {
+    measure.mockRestore();
+    vi.unstubAllGlobals();
+  }
 });
 
 it('dispatches transport actions, cycles repeat modes and opens the queue', async () => {

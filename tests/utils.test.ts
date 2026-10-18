@@ -1,6 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { filterTracks, formatTime, nextIndex, playbackOrder, plural } from '../src/shared/utils';
+import {
+  filterTracks,
+  formatTime,
+  nextIndex,
+  playbackOrder,
+  plural,
+  parentFolder,
+} from '../src/shared/utils';
 import type { Track } from '../src/shared/types';
+
+it('extracts source folders without losing Windows roots, Unicode or network shares', () => {
+  for (const [path, folder] of [
+    [String.raw`C:\Музыка\Альбом\song.opus`, String.raw`C:\Музыка\Альбом`],
+    ['C:\\song.mp3', 'C:\\'],
+    ['C:/song.mp3', 'C:/'],
+    [String.raw`\\server\music\song.flac`, String.raw`\\server\music`],
+    ['/music/album/song.ogg', '/music/album'],
+    ['/song.wav', '/'],
+    ['song.m4a', null],
+  ])
+    expect(parentFolder(path!)).toBe(folder);
+});
 
 export const fixture: Track = {
   id: 'one',

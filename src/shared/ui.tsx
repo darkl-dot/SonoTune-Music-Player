@@ -238,11 +238,13 @@ export function Menu({
   y,
   items,
   onClose,
+  footer,
 }: {
   x: number;
   y: number;
   items: MenuItem[];
   onClose(): void;
+  footer?: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -297,6 +299,7 @@ export function Menu({
           <span>{item.label}</span>
         </button>
       ))}
+      {footer && <div className="context-menu-footer">{footer}</div>}
     </div>
   );
 }

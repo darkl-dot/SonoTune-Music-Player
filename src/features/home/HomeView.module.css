@@ -141,7 +141,7 @@
 .cardLabel {
   position: absolute;
   left: 20px;
-  right: 46px;
+  right: 88px;
   top: 20px;
   display: flex;
   align-items: flex-start;
@@ -201,16 +201,20 @@
   transform: translateY(-3px);
   border-radius: 18px;
 }
-.card > .refresh {
+.cardTools {
   position: absolute;
   right: 11px;
   top: 11px;
+  display: flex;
+  gap: 4px;
+}
+.cardTools > button {
   width: 31px;
   height: 31px;
   color: #fff;
   background: rgba(20, 16, 26, 0.22);
 }
-.card > .refresh:hover:not(:disabled) {
+.cardTools > button:hover:not(:disabled) {
   color: #fff;
   background: rgba(20, 16, 26, 0.5);
 }

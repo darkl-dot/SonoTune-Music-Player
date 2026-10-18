@@ -104,6 +104,34 @@ it('plays the last and most played tracks and rerolls a suggestion without start
   expect(useStore.getState().section).toBe('tracks');
 });
 
+it('pins each highlight without triggering playback and marks an existing pin', () => {
+  const onPin = vi.fn();
+  render(<HomeView onPin={onPin} />);
+  for (const [name, id] of [
+    ['Недавно играло', 'Recent'],
+    ['Чаще остальных', 'Frequent'],
+    ['А может, это?', 'Random'],
+  ]) {
+    fireEvent.click(
+      within(screen.getByRole('article', { name })).getByRole('button', {
+        name: 'Закрепить на главной',
+      }),
+    );
+    expect(onPin.mock.calls.at(-1)?.[0].id).toBe(id);
+  }
+  expect(service.play).not.toHaveBeenCalled();
+  act(() =>
+    useStore.setState((s) => ({
+      library: { ...s.library, pins: [{ trackId: 'Recent', label: 'For work' }] },
+    })),
+  );
+  expect(
+    within(screen.getByRole('article', { name: 'Недавно играло' }))
+      .getByRole('button', { name: 'Изменить закрепление' })
+      .classList.contains('is-active'),
+  ).toBe(true);
+});
+
 it('shows honest empty history and translates cards without changing song titles', () => {
   useStore.setState((s) => ({ library: { ...s.library, listening: {} } }));
   render(<HomeView />);

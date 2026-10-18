@@ -31,6 +31,10 @@ It opens **paused**; press Play when you are ready. Startup can open any library
 a specific playlist, or the last section you visited.
 
 Click the song title in the bottom player to find and highlight it in All tracks.
+Right-click a track or use its three-dot menu to see its source folder below the actions.
+The path can be selected and copied; imports without folder information say so explicitly.
+Use the pin icon beside the current song or on any Home highlight card to pin it to
+Home with an optional caption. A filled pin opens the existing pin for editing or removal.
 
 ### A queue you can shape
 

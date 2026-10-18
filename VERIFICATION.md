@@ -1,10 +1,10 @@
-# Verification — SonoTune v1.1.2
+# Verification — SonoTune v1.1.3
 
 Verified on Windows x64 on October 18, 2026.
 
 ## Automated checks
 
-**135 checks passed:** 83 frontend/browser-adapter tests, 50 regular Rust tests, and
+**140 checks passed:** 88 frontend/browser-adapter tests, 50 regular Rust tests, and
 two separately executed native Windows integration tests.
 
 ```sh
@@ -34,8 +34,21 @@ explicitly run and passed. The device-notification check does not change physica
   and listening-session accounting. Repeated and stale-stream callbacks are ignored.
 - Desktop settings read native state, report failed changes, disable close-to-tray
   when unavailable, and provide manual diagnostic copying when the clipboard fails.
-- Navigation silhouettes remain distinct and stable through rerenders. Real second-process
-  forwarding and tray input are implemented but were not manually exercised in this run.
+- Real second-process forwarding and tray input are implemented but were not manually
+  exercised in this run.
+
+## v1.1.3 interface changes
+
+- The wave uses one continuous SVG path. Resize tests cover fractional widths and
+  widths up to 4096 px, verify coverage during animation, and exercise seeking near the end.
+- Pin actions on all three Home highlights and on the current song open the correct
+  track without starting playback. Existing pins are marked and can be edited.
+- Sorting still updates the actual track list after moving into the top bar.
+- Player layout checks cover widths from 360 to 1920 px; desktop height is 100 px,
+  with the compact mobile layout retained. These are DOM/CSS checks, not pixel comparisons.
+- Both context-menu entry points display the source folder. Path tests include Unicode,
+  Windows drive roots, UNC shares, POSIX paths, and imports with no directory information.
+- The library status footer is removed. Sidebar selection uses the original capsules.
 
 ## Session, library, and Home coverage
 
@@ -110,7 +123,7 @@ failures are reported without stopping local playback.
 
 ## Build and package
 
-The supplied Windows executable is an optimized v1.1.2 build produced using Rust 1.99,
+The supplied Windows executable is an optimized v1.1.3 build produced using Rust 1.99,
 LLVM-MinGW, and Node.js 24.19. Frontend JavaScript/CSS filenames and all six offline
 font subsets are verified inside the executable. The portable ZIP includes its DLLs,
 demo files, documentation, and third-party license notices. libopus is linked statically.
@@ -120,11 +133,11 @@ when packaging. `build-info.json` and `SHA256SUMS.txt` in the release identify t
 
 ## Verification limits
 
-An isolated native QA window launched successfully with separate application data,
-and its first-run welcome screen was captured. The user stopped Computer Use with
-Escape before the full interface/tray review; no further app input was issued.
-The user's running player was left untouched. Full navigation-shape appearance,
-tray clicks, second-launch restoration, Explorer interaction, and physical drag-and-drop
+Final native-window visual review is not confirmed for v1.1.3. A local browser preview
+for these interface changes was blocked by saved browser permissions; the restriction
+was not bypassed. User screenshots guided the corrections but are not treated as a
+pixel-level verification of this final build. The user's running player was left untouched.
+Tray clicks, second-launch restoration, Explorer interaction, and physical drag-and-drop
 are not claimed as manually verified.
 
 Physical audio unplug/replug and startup after Windows login were not exercised.

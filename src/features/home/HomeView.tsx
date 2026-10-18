@@ -11,6 +11,7 @@ import type { Track } from '../../shared/types';
 import { listeningHighlights, randomSuggestion } from './highlights';
 import styles from './HomeView.module.css';
 import { PinnedTracks } from './PinnedTracks';
+import { PinButton } from './PinButton';
 
 function HomeCard({
   label,
@@ -20,6 +21,7 @@ function HomeCard({
   icon: Icon,
   onPlay,
   onRefresh,
+  onPin,
 }: {
   label: string;
   hint: string;
@@ -28,6 +30,7 @@ function HomeCard({
   detail?: string;
   onPlay(track?: Track): void;
   onRefresh?: () => void;
+  onPin?: (track: Track) => void;
 }) {
   return (
     <article className={`${styles.card} ${track ? '' : styles.empty}`} aria-label={label}>
@@ -57,15 +60,14 @@ function HomeCard({
           {track ? <Play size={23} fill="currentColor" /> : <ArrowUpRight size={23} />}
         </span>
       </button>
-      {onRefresh && (
-        <IconButton
-          className={styles.refresh}
-          label={t('Предложить другой трек')}
-          onClick={onRefresh}
-        >
-          <RefreshCw size={16} />
-        </IconButton>
-      )}
+      <div className={styles.cardTools}>
+        {track && <PinButton track={track} onPin={onPin} />}
+        {onRefresh && (
+          <IconButton label={t('Предложить другой трек')} onClick={onRefresh}>
+            <RefreshCw size={16} />
+          </IconButton>
+        )}
+      </div>
     </article>
   );
 }
@@ -141,6 +143,7 @@ export function HomeView({ onPin }: { onPin?(track?: Track): void } = {}) {
               track={recent}
               icon={Clock3}
               onPlay={play}
+              onPin={onPin}
             />
             <HomeCard
               label={t('Чаще остальных')}
@@ -157,6 +160,7 @@ export function HomeView({ onPin }: { onPin?(track?: Track): void } = {}) {
               track={frequent}
               icon={Flame}
               onPlay={play}
+              onPin={onPin}
             />
             <HomeCard
               label={t('А может, это?')}
@@ -164,6 +168,7 @@ export function HomeView({ onPin }: { onPin?(track?: Track): void } = {}) {
               track={suggestion}
               icon={Sparkles}
               onPlay={play}
+              onPin={onPin}
               onRefresh={
                 available.length > 1
                   ? () =>

@@ -1,5 +1,5 @@
 import { t, useLanguage } from '../shared/i18n';
-import type { DragEvent, RefObject } from 'react';
+import type { DragEvent, ReactNode, RefObject } from 'react';
 import {
   Album,
   ArrowUpRight,
@@ -25,7 +25,6 @@ import type { Dialog } from './dialogs';
 import styles from './App.module.css';
 import { CategorySignature } from './CategorySignature';
 import { PlaylistArtwork } from '../features/playlists/PlaylistArtwork';
-import { NavigationShape } from './NavigationShape';
 
 export const navigation = [
   { id: 'home', label: 'Главная', icon: House },
@@ -79,7 +78,6 @@ export function Sidebar({
               aria-current={section === id ? 'page' : undefined}
               onClick={() => useStore.getState().setSection(id)}
             >
-              <NavigationShape seed={id} />
               <Icon size={20} />
               <span>{t(label)}</span>
               {id === 'tracks' && <span className="nav-count">{library.tracks.length}</span>}
@@ -93,7 +91,6 @@ export function Sidebar({
           aria-current={section === 'favorites' ? 'page' : undefined}
           onClick={() => useStore.getState().setSection('favorites')}
         >
-          <NavigationShape seed="favorites" />
           <Heart size={20} />
           <span>{t('Избранное')}</span>
         </button>
@@ -131,7 +128,6 @@ export function Sidebar({
                 onDragLeave={() => setDropTarget(null)}
                 onDrop={(e) => drop(e, item.id)}
               >
-                <NavigationShape seed={item.id} />
                 {item.artwork ? (
                   <span className="playlist-mini-cover">
                     <PlaylistArtwork playlist={item} />
@@ -176,7 +172,7 @@ export function Sidebar({
         >
           <Settings2 size={17} />
           <span>{t('Настройки')}</span>
-          <span className="version">v1.1.2</span>
+          <span className="version">v1.1.3</span>
         </button>
       </div>
     </aside>
@@ -185,7 +181,8 @@ export function Sidebar({
 export function Topbar({
   setDialog,
   search,
-}: ShellProps & { search: RefObject<HTMLInputElement | null> }) {
+  controls,
+}: ShellProps & { search: RefObject<HTMLInputElement | null>; controls?: ReactNode }) {
   useLanguage();
   const query = useStore((s) => s.query);
   return (
@@ -207,6 +204,7 @@ export function Topbar({
           <kbd>Ctrl K</kbd>
         )}
       </div>
+      {controls}
       <CategorySignature />
       <IconButton
         label={t('Настройки оформления')}

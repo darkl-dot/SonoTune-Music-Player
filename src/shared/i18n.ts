@@ -34,6 +34,8 @@ export function setLanguage(language: Language) {
 }
 
 export const english: Record<string, string> = {
+  'Папка файла': 'File folder',
+  'Папка не указана': 'Folder not provided',
   'Работа приложения': 'App behavior',
   Версия: 'Version',
   'Трей недоступен. Крестик полностью закроет приложение.':

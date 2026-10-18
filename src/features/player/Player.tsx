@@ -19,11 +19,10 @@ import { Artwork, IconButton } from '../../shared/ui';
 import { artistName, formatTime } from '../../shared/utils';
 import styles from './Player.module.css';
 import { PlaybackMode } from './PlaybackMode';
+import { Waveform } from './Waveform';
+import { PinButton } from '../home/PinButton';
+import type { Track } from '../../shared/types';
 
-const wave = Array.from(
-  { length: 201 },
-  (_, i) => `${i ? 'L' : 'M'}${i * 5},${15 + Math.sin((i * Math.PI) / 5) * 4}`,
-).join(' ');
 const seekKeys = [
   'ArrowLeft',
   'ArrowRight',
@@ -58,10 +57,12 @@ function Progress() {
       <span>{formatTime(value)}</span>
       <div className={`${styles.waveSlider} ${playing ? styles.moving : ''}`}>
         <div className={styles.waveRemainder} />
-        <div className={styles.waveFill} style={{ width: `${percent}%` }}>
-          <svg viewBox="0 0 1000 30" preserveAspectRatio="none" aria-hidden="true">
-            <path d={wave} />
-          </svg>
+        <div
+          className={styles.waveFill}
+          style={{ clipPath: `inset(0 ${100 - percent}% 0 0)` }}
+          aria-hidden="true"
+        >
+          <Waveform />
         </div>
         <div className={styles.thumb} style={{ left: `${percent}%` }} />
         <input
@@ -92,7 +93,15 @@ function Progress() {
   );
 }
 
-export function Player({ onQueue, queueOpen = false }: { onQueue(): void; queueOpen?: boolean }) {
+export function Player({
+  onQueue,
+  queueOpen = false,
+  onPin,
+}: {
+  onQueue(): void;
+  queueOpen?: boolean;
+  onPin?(track: Track): void;
+}) {
   useLanguage();
   const id = useStore((s) => s.playback.trackId);
   const track = useStore((s) => s.library.tracks.find((t) => t.id === id));
@@ -163,14 +172,17 @@ export function Player({ onQueue, queueOpen = false }: { onQueue(): void; queueO
             {track ? artistName(track) : t('Выберите музыку в библиотеке')}
           </span>
         </div>
-        <IconButton
-          label={track?.favorite ? t('Убрать из избранного') : t('В избранное')}
-          className={track?.favorite ? 'is-active' : ''}
-          disabled={!track}
-          onClick={() => track && void run(() => useStore.getState().favorite(track))}
-        >
-          <Heart size={19} fill={track?.favorite ? 'currentColor' : 'none'} />
-        </IconButton>
+        <div className={styles.trackActions}>
+          <IconButton
+            label={track?.favorite ? t('Убрать из избранного') : t('В избранное')}
+            className={track?.favorite ? 'is-active' : ''}
+            disabled={!track}
+            onClick={() => track && void run(() => useStore.getState().favorite(track))}
+          >
+            <Heart size={19} fill={track?.favorite ? 'currentColor' : 'none'} />
+          </IconButton>
+          <PinButton track={track} onPin={onPin} />
+        </div>
       </div>
       <div className={styles.transport}>
         <div className={styles.controls} role="group" aria-label={t('Управление воспроизведением')}>

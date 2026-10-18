@@ -3,6 +3,13 @@ import { locale, t, useLanguageStore } from './i18n';
 
 export const UNKNOWN_ARTIST = '\u0001artist';
 export const UNKNOWN_GENRE = '\u0001genre';
+export function parentFolder(path: string): string | null {
+  const separator = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+  if (separator < 0) return null;
+  if (separator === 0 || (separator === 2 && /^[a-z]:/i.test(path)))
+    return path.slice(0, separator + 1);
+  return path.slice(0, separator);
+}
 export const artistName = (track: Track) =>
   track.artists.join(', ') || t('Неизвестный исполнитель');
 export const albumName = (track: Track) =>

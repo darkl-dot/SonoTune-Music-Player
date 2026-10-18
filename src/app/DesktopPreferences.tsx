@@ -80,7 +80,7 @@ export function DesktopPreferences() {
       <div className="technical-heading">
         <span className="settings-label">{t('Техническое')}</span>
         <span className="technical-version" aria-label={t('Версия')}>
-          v1.1.2
+          v1.1.3
         </span>
       </div>
       <div className="technical-actions">

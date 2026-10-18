@@ -100,7 +100,7 @@ export function SettingsDialog({ onClose }: { onClose(): void }) {
         )}
       </div>
       <div className="settings-about">
-        <strong>SonoTune {!desktop && <span>v1.1.2</span>}</strong>
+        <strong>SonoTune {!desktop && <span>v1.1.3</span>}</strong>
         <p>{t('Музыка рядом. Без аккаунтов и облака.')}</p>
         <span>
           {desktop

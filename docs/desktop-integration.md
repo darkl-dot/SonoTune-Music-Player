@@ -80,7 +80,5 @@ Diagnostics can still describe a controller or registry query that fails or time
 
 ## Navigation shapes
 
-The six library pages receive a shuffled set of soft SVG silhouettes once per session.
-Playlists use stable per-session variants too. Hovering, changing pages, searching, or
-rerendering does not choose a new shape. Text, focus, selection semantics, and rectangular
-click targets remain intact. Existing reduced-motion styling also applies to transitions.
+Sidebar pages and playlists use rounded capsule backgrounds for hover and selection.
+The experimental shuffled silhouettes from v1.1.2 have been reverted in v1.1.3. Keyboard focus and existing reduced-motion styling remain available.

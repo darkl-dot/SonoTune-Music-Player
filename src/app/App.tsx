@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Check,
   ChevronRight,
+  FolderOpen,
   Heart,
   ImagePlus,
   LayoutGrid,
@@ -31,6 +32,7 @@ import {
   formatDuration,
   groupName,
   plural,
+  parentFolder,
   UNKNOWN_ARTIST,
   UNKNOWN_GENRE,
 } from '../shared/utils';
@@ -238,7 +240,51 @@ export function App() {
           drop={drop}
         />
         <main className={styles.main}>
-          <Topbar setDialog={setDialog} search={search} />
+          <Topbar
+            setDialog={setDialog}
+            search={search}
+            controls={
+              !hero &&
+              tracks.length > 0 &&
+              !grouped &&
+              section !== 'playlists' && (
+                <div className="library-toolbar">
+                  <Select
+                    label={t('Сортировка треков')}
+                    value={sort}
+                    onChange={setSort}
+                    options={[
+                      {
+                        value: 'added',
+                        label: playlist ? t('Порядок плейлиста') : t('Недавно добавленные'),
+                      },
+                      { value: 'title', label: t('По названию') },
+                      { value: 'artist', label: t('По исполнителю') },
+                      { value: 'duration', label: t('По длительности') },
+                    ]}
+                  />
+                  <div className="view-toggle" aria-label={t('Вид библиотеки')}>
+                    <IconButton
+                      label={t('Список')}
+                      aria-pressed={view === 'list'}
+                      className={view === 'list' ? 'selected' : ''}
+                      onClick={() => useStore.getState().setView('list')}
+                    >
+                      <List size={17} />
+                    </IconButton>
+                    <IconButton
+                      label={t('Сетка')}
+                      aria-pressed={view === 'grid'}
+                      className={view === 'grid' ? 'selected' : ''}
+                      onClick={() => useStore.getState().setView('grid')}
+                    >
+                      <LayoutGrid size={16} />
+                    </IconButton>
+                  </div>
+                </div>
+              )
+            }
+          />
           {hero ? (
             <HomeView onPin={(track) => setDialog({ kind: 'pin', track })} />
           ) : (
@@ -329,42 +375,6 @@ export function App() {
                   )}
                 </div>
               </div>
-              {tracks.length > 0 && !grouped && section !== 'playlists' && (
-                <div className="library-toolbar">
-                  <Select
-                    label={t('Сортировка треков')}
-                    value={sort}
-                    onChange={setSort}
-                    options={[
-                      {
-                        value: 'added',
-                        label: playlist ? t('Порядок плейлиста') : t('Недавно добавленные'),
-                      },
-                      { value: 'title', label: t('По названию') },
-                      { value: 'artist', label: t('По исполнителю') },
-                      { value: 'duration', label: t('По длительности') },
-                    ]}
-                  />
-                  <div className="view-toggle" aria-label={t('Вид библиотеки')}>
-                    <IconButton
-                      label={t('Список')}
-                      aria-pressed={view === 'list'}
-                      className={view === 'list' ? 'selected' : ''}
-                      onClick={() => useStore.getState().setView('list')}
-                    >
-                      <List size={17} />
-                    </IconButton>
-                    <IconButton
-                      label={t('Сетка')}
-                      aria-pressed={view === 'grid'}
-                      className={view === 'grid' ? 'selected' : ''}
-                      onClick={() => useStore.getState().setView('grid')}
-                    >
-                      <LayoutGrid size={16} />
-                    </IconButton>
-                  </div>
-                </div>
-              )}
               {!loaded ? (
                 <div className="loading-library">
                   <LoaderCircle className="spin" />
@@ -403,19 +413,16 @@ export function App() {
                   onEdit={openEdit}
                 />
               )}
-              <div className="library-bottom">
-                <span>
-                  <span className="status-dot" />
-                  {busy ? t('Обновляем библиотеку') : t('Всё на вашем устройстве')}
-                </span>
-                <span>{desktop ? t('Локальная библиотека') : t('Браузерный режим')}</span>
-              </div>
             </section>
           )}
         </main>
         {queueOpen && <Queue onClose={() => setQueueOpen(false)} />}
       </div>
-      <Player queueOpen={queueOpen} onQueue={() => setQueueOpen((value) => !value)} />
+      <Player
+        queueOpen={queueOpen}
+        onQueue={() => setQueueOpen((value) => !value)}
+        onPin={(track) => setDialog({ kind: 'pin', track })}
+      />
       {busy && (
         <div className="scan-indicator" role="status">
           <LoaderCircle className="spin" size={18} />
@@ -458,7 +465,25 @@ export function App() {
           </div>
         ))}
       </div>
-      {menu && <Menu x={menu.x} y={menu.y} items={menuItems} onClose={closeMenu} />}
+      {menu && (
+        <Menu
+          x={menu.x}
+          y={menu.y}
+          items={menuItems}
+          onClose={closeMenu}
+          footer={
+            <>
+              <span>
+                <FolderOpen size={14} />
+                {t('Папка файла')}
+              </span>
+              <p dir="ltr" title={parentFolder(menu.track.path) ?? undefined}>
+                {parentFolder(menu.track.path) ?? t('Папка не указана')}
+              </p>
+            </>
+          }
+        />
+      )}
       {dialog?.kind === 'tags' && <TagEditor track={dialog.track} onClose={closeDialog} />}
       {dialog?.kind === 'playlist' && (
         <PlaylistDialog playlist={dialog.playlist} track={dialog.track} onClose={closeDialog} />

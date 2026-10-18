@@ -82,6 +82,35 @@ it('mounts the complete app, searches, navigates by artist and creates a playlis
   expect(useStore.getState().library.playlists[0].name).toBe('Прогулка');
 });
 
+it.each(['dots', 'right-click'])(
+  'shows the track folder through %s and removes the library status footer',
+  (entry) => {
+    const seed = useStore.getState().library.tracks[0];
+    const folder = String.raw`C:\Музыка\Альбом`;
+    useStore.setState({
+      library: {
+        tracks: [
+          { ...seed, id: 'folder-test', title: 'Folder track', path: folder + '\\song.opus' },
+        ],
+        playlists: [],
+        folders: [],
+      },
+      section: 'tracks',
+      loaded: true,
+    });
+    const { container } = render(<App />);
+    const dots = screen.getByRole('button', { name: 'Действия: Folder track' });
+    if (entry === 'dots') fireEvent.click(dots);
+    else fireEvent.contextMenu(dots.closest('[data-track-id]')!);
+    const menu = screen.getByRole('menu');
+    expect(within(menu).getByText('Папка файла')).toBeTruthy();
+    expect(within(menu).getByText(folder)).toBeTruthy();
+    expect(within(menu).getAllByRole('menuitem').length).toBeGreaterThan(0);
+    expect(container.querySelector('.library-bottom')).toBeNull();
+    expect(screen.queryByText('Всё на вашем устройстве')).toBeNull();
+  },
+);
+
 it('shows the banner only on Home and a themed signature in each category', async () => {
   render(<App />);
   expect(screen.getByText('Можно просто нажать Play.')).toBeTruthy();
@@ -132,7 +161,7 @@ it('chooses English on first run, persists it, translates categories and switche
   }
   fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
   const settings = screen.getByRole('dialog', { name: 'Make SonoTune yours' });
-  expect(within(settings).getByText('v1.1.2')).toBeTruthy();
+  expect(within(settings).getByText('v1.1.3')).toBeTruthy();
   fireEvent.click(within(settings).getByRole('button', { name: /Русский/ }));
   expect(document.documentElement.lang).toBe('ru');
   expect(localStorage.getItem('sonotune-language')).toBe('ru');
