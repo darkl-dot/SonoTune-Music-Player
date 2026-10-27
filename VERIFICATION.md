@@ -1,10 +1,10 @@
-# Verification — SonoTune v1.1.3
+# Verification — SonoTune v1.1.4
 
-Verified on Windows x64 on October 18, 2026.
+Verified on Windows x64 on October 27, 2026.
 
 ## Automated checks
 
-**140 checks passed:** 88 frontend/browser-adapter tests, 50 regular Rust tests, and
+**141 checks passed:** 89 frontend/browser-adapter tests, 50 regular Rust tests, and
 two separately executed native Windows integration tests.
 
 ```sh
@@ -37,18 +37,20 @@ explicitly run and passed. The device-notification check does not change physica
 - Real second-process forwarding and tray input are implemented but were not manually
   exercised in this run.
 
-## v1.1.3 interface changes
+## v1.1.4 interface changes
 
-- The wave uses one continuous SVG path. Resize tests cover fractional widths and
-  widths up to 4096 px, verify coverage during animation, and exercise seeking near the end.
-- Pin actions on all three Home highlights and on the current song open the correct
-  track without starting playback. Existing pins are marked and can be edited.
-- Sorting still updates the actual track list after moving into the top bar.
-- Player layout checks cover widths from 360 to 1920 px; desktop height is 100 px,
-  with the compact mobile layout retained. These are DOM/CSS checks, not pixel comparisons.
-- Both context-menu entry points display the source folder. Path tests include Unicode,
-  Windows drive roots, UNC shares, POSIX paths, and imports with no directory information.
-- The library status footer is removed. Sidebar selection uses the original capsules.
+- Alt+click on a list row or grid card toggles selection and shows a checkbox whose
+  accessible state matches the track. The context-menu Select action enters the same mode.
+- Alt+A selects every visible track; Escape, the selection bar's clear button, and a
+  section or grouping change all leave selection. Hidden Home banners, grouped rows, and
+  playlist shortcuts are excluded.
+- Context-menu actions operate on the whole selection: play starts the first selected
+  track and queues the rest in view order; enqueue preserves that order; adding to a
+  playlist and removing from one use a single write; favorite toggles all-or-none.
+- Tag and pin editors open one after another for each selected track, and closing one
+  advances to the next without dropping the remaining selection.
+- The selection bar reports the selected count in both languages and keeps the footer
+  folder hidden for multi-track menus.
 
 ## Session, library, and Home coverage
 
@@ -123,8 +125,8 @@ failures are reported without stopping local playback.
 
 ## Build and package
 
-The supplied Windows executable is an optimized v1.1.3 build produced using Rust 1.99,
-LLVM-MinGW, and Node.js 24.19. Frontend JavaScript/CSS filenames and all six offline
+The supplied Windows executable is an optimized v1.1.4 build produced using Rust 1.99,
+the MSVC toolchain, and Node.js 24.21. Frontend JavaScript/CSS filenames and all six offline
 font subsets are verified inside the executable. The portable ZIP includes its DLLs,
 demo files, documentation, and third-party license notices. libopus is linked statically.
 
@@ -133,10 +135,8 @@ when packaging. `build-info.json` and `SHA256SUMS.txt` in the release identify t
 
 ## Verification limits
 
-Final native-window visual review is not confirmed for v1.1.3. A local browser preview
-for these interface changes was blocked by saved browser permissions; the restriction
-was not bypassed. User screenshots guided the corrections but are not treated as a
-pixel-level verification of this final build. The user's running player was left untouched.
+Final native-window visual review is not confirmed for v1.1.4. The user's running player
+was left untouched during the build.
 Tray clicks, second-launch restoration, Explorer interaction, and physical drag-and-drop
 are not claimed as manually verified.
 

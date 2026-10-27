@@ -44,7 +44,7 @@ beforeEach(() => {
   native.configure.mockImplementation(async (patch) => ({ ...defaults, ...patch }));
   native.registerOpenWith.mockResolvedValue({ ...defaults, associationsRegistered: true });
   native.openDataFolder.mockResolvedValue(undefined);
-  native.diagnostics.mockResolvedValue('SonoTune v1.1.3\nPlaying: false\nRecent errors: None');
+  native.diagnostics.mockResolvedValue('SonoTune v1.1.4\nPlaying: false\nRecent errors: None');
   native.onExternal.mockResolvedValue(() => {});
   native.pendingExternal.mockResolvedValue(null);
   useStore.setState({
@@ -98,7 +98,7 @@ it('offers diagnostics with a selectable fallback, opens the data folder and reg
   await waitFor(() =>
     expect(
       (screen.getByRole('textbox', { name: 'Диагностика' }) as HTMLTextAreaElement).value,
-    ).toContain('v1.1.3'),
+    ).toContain('v1.1.4'),
   );
   expect(native.registerOpenWith).not.toHaveBeenCalled();
   const button = screen.getByRole('button', { name: 'Добавить в «Открыть с помощью»' });

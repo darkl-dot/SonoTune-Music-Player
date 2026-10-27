@@ -161,7 +161,7 @@ it('chooses English on first run, persists it, translates categories and switche
   }
   fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
   const settings = screen.getByRole('dialog', { name: 'Make SonoTune yours' });
-  expect(within(settings).getByText('v1.1.3')).toBeTruthy();
+  expect(within(settings).getByText('v1.1.4')).toBeTruthy();
   fireEvent.click(within(settings).getByRole('button', { name: /Русский/ }));
   expect(document.documentElement.lang).toBe('ru');
   expect(localStorage.getItem('sonotune-language')).toBe('ru');
@@ -226,4 +226,57 @@ it('opens a playlist from the overview and keeps the home banner out of the play
   expect(screen.getByRole('heading', { name: 'Evening Walk' })).toBeTruthy();
   expect(screen.getByRole('table', { name: 'Список треков' })).toBeTruthy();
   expect(screen.queryByRole('region', { name: 'Ваша музыка' })).toBeNull();
+});
+it('selects tracks, applies a playlist action to the selection, and supports keyboard selection in grid view', async () => {
+  render(<App />);
+  await waitFor(() => expect(useStore.getState().library.tracks.length).toBeGreaterThan(0));
+  const seed = useStore.getState().library.tracks[0];
+  act(() =>
+    useStore.setState({
+      section: 'tracks',
+      view: 'list',
+      loaded: true,
+      library: {
+        tracks: [
+          { ...seed, id: 'one', title: 'First' },
+          { ...seed, id: 'two', title: 'Second' },
+        ],
+        playlists: [{ id: 'mix', name: 'Mix', trackIds: [], createdAt: 1, artwork: null }],
+        folders: [],
+      },
+    }),
+  );
+  fireEvent.contextMenu(
+    screen.getByRole('button', { name: 'Действия: First' }).closest('[data-track-id]')!,
+  );
+  fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Выделить' }));
+  expect(
+    screen.getByRole('checkbox', { name: 'Выделить First' }).getAttribute('aria-checked'),
+  ).toBe('true');
+  fireEvent.click(screen.getByRole('button', { name: 'Выделить все' }));
+  expect(
+    screen.getByRole('checkbox', { name: 'Выделить Second' }).getAttribute('aria-checked'),
+  ).toBe('true');
+  fireEvent.contextMenu(
+    screen.getByRole('button', { name: 'Действия: Second' }).closest('[data-track-id]')!,
+  );
+  fireEvent.click(
+    within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Добавить в плейлист' }),
+  );
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /Mix/ }));
+  await waitFor(() =>
+    expect(useStore.getState().library.playlists[0].trackIds).toEqual(['one', 'two']),
+  );
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  fireEvent.keyDown(document.body, { key: 'Escape' });
+  expect(screen.queryByRole('checkbox', { name: 'Выделить First' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Сетка' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Слушать First' }), { altKey: true });
+  expect(
+    screen.getByRole('checkbox', { name: 'Выделить First' }).getAttribute('aria-checked'),
+  ).toBe('true');
+  fireEvent.keyDown(document.body, { key: 'a', altKey: true });
+  expect(
+    screen.getByRole('checkbox', { name: 'Выделить Second' }).getAttribute('aria-checked'),
+  ).toBe('true');
 });

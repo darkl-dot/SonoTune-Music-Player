@@ -10,10 +10,12 @@ import { preparePlaylistCover } from '../../shared/playlist-cover';
 export function PlaylistDialog({
   playlist,
   track,
+  tracks: initialTracks,
   onClose,
 }: {
   playlist?: Playlist;
   track?: Track;
+  tracks?: Track[];
   onClose(): void;
 }) {
   useLanguage();
@@ -26,7 +28,8 @@ export function PlaylistDialog({
   const fileInput = useRef<HTMLInputElement>(null);
   const imageRequest = useRef(0);
   const tracks = useStore((s) => s.library.tracks);
-  const firstTrack = track ?? tracks.find((item) => playlist?.trackIds.includes(item.id));
+  const firstTrack =
+    track ?? initialTracks?.[0] ?? tracks.find((item) => playlist?.trackIds.includes(item.id));
   useEffect(
     () => () => {
       imageRequest.current++;
@@ -101,7 +104,10 @@ export function PlaylistDialog({
               const value: Playlist = {
                 id: playlist?.id ?? crypto.randomUUID(),
                 name: name.trim(),
-                trackIds: playlist?.trackIds ?? (track ? [track.id] : []),
+                trackIds:
+                  playlist?.trackIds ??
+                  initialTracks?.map((item) => item.id) ??
+                  (track ? [track.id] : []),
                 createdAt: playlist?.createdAt ?? Date.now(),
                 artwork,
               };

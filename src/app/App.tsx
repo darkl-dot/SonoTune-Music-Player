@@ -4,6 +4,7 @@ import type { MouseEvent } from 'react';
 import {
   ArrowLeft,
   Check,
+  CheckCircle2,
   ChevronRight,
   FolderOpen,
   Heart,
@@ -73,9 +74,28 @@ export function App() {
   const [dialog, setDialog] = useState<Dialog>(null);
   const [queueOpen, setQueueOpen] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; track: Track } | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const pendingDialogs = useRef<Dialog[]>([]);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const search = useRef<HTMLInputElement>(null);
-  const closeDialog = useCallback(() => setDialog(null), []);
+  const closeDialog = useCallback(() => setDialog(pendingDialogs.current.shift() ?? null), []);
+  const exitSelection = useCallback(() => {
+    setSelectionMode(false);
+    setSelected(new Set());
+  }, []);
+  const toggleSelection = useCallback((track: Track) => {
+    setSelectionMode(true);
+    setSelected((previous) => {
+      const next = new Set(previous);
+      if (next.has(track.id)) next.delete(track.id);
+      else next.add(track.id);
+      return next;
+    });
+  }, []);
+  useEffect(() => {
+    exitSelection();
+  }, [section, group, exitSelection]);
   const closeMenu = useCallback(() => setMenu(null), []);
   const openEdit = useCallback((track: Track) => setDialog({ kind: 'tags', track }), []);
   const openMenu = useCallback((event: MouseEvent, track: Track) => {
@@ -132,6 +152,38 @@ export function App() {
       : [...values].sort((a, b) => b.addedAt - a.addedAt || a.path.localeCompare(b.path));
   }, [library.tracks, playlist, section, group, deferredQuery, sort, language]);
   const grouped = !group && ['artists', 'albums', 'genres'].includes(section);
+  const visibleSelected = tracks.filter((track) => selected.has(track.id));
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (
+        dialog ||
+        menu ||
+        target?.isContentEditable ||
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName)
+      )
+        return;
+      if (
+        event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        event.key.toLowerCase() === 'a' &&
+        !(section === 'home' && !query.trim()) &&
+        !grouped &&
+        section !== 'playlists' &&
+        tracks.length
+      ) {
+        event.preventDefault();
+        setSelectionMode(true);
+        setSelected(new Set(tracks.map((track) => track.id)));
+      } else if (event.key === 'Escape' && selectionMode) {
+        event.preventDefault();
+        exitSelection();
+      }
+    };
+    window.addEventListener('keydown', listener);
+    return () => window.removeEventListener('keydown', listener);
+  }, [tracks, selectionMode, grouped, section, query, dialog, menu, exitSelection]);
   const title = group
     ? groupName(group)
     : (playlist?.name ??
@@ -154,6 +206,15 @@ export function App() {
         tracks.map((t) => t.id),
       );
     });
+  const selectionMenu = !!menu && selectionMode && selected.has(menu.track.id);
+  const menuTracks = menu && selectionMenu ? visibleSelected : menu ? [menu.track] : [];
+  const multiple = menuTracks.length > 1;
+  const allFavorite = menuTracks.every((track) => track.favorite);
+  const openSequence = (kind: 'tags' | 'pin') => {
+    const dialogs: Dialog[] = menuTracks.map((track) => ({ kind, track }));
+    pendingDialogs.current = dialogs.slice(1);
+    setDialog(dialogs[0]);
+  };
   const menuItems: MenuItem[] = menu
     ? [
         {
@@ -164,8 +225,8 @@ export function App() {
               await (
                 await api
               ).play(
-                menu.track.id,
-                tracks.map((t) => t.id),
+                selectionMenu ? menuTracks[0].id : menu.track.id,
+                (selectionMenu ? menuTracks : tracks).map((t) => t.id),
               );
             }),
         },
@@ -174,24 +235,35 @@ export function App() {
           icon: <ListMusic size={17} />,
           action: () =>
             void run(async () => {
-              await (await api).enqueue(menu.track.id);
-              useStore.getState().notify(t('Трек будет следующим в очереди'));
+              const service = await api;
+              for (const track of [...menuTracks].reverse()) await service.enqueue(track.id);
+              useStore
+                .getState()
+                .notify(
+                  multiple
+                    ? t('Выбранные треки добавлены в очередь')
+                    : t('Трек будет следующим в очереди'),
+                );
             }),
         },
         {
           label: t('Добавить в плейлист'),
           icon: <Plus size={17} />,
-          action: () => setDialog({ kind: 'add', track: menu.track }),
+          action: () => setDialog({ kind: 'add', tracks: menuTracks }),
         },
         {
-          label: menu.track.favorite ? t('Убрать из избранного') : t('В избранное'),
+          label: allFavorite ? t('Убрать из избранного') : t('В избранное'),
           icon: <Heart size={17} />,
-          action: () => void run(() => useStore.getState().favorite(menu.track)),
+          action: () =>
+            void run(async () => {
+              for (const track of menuTracks)
+                if (track.favorite !== !allFavorite) await useStore.getState().favorite(track);
+            }),
         },
         {
           label: t('Редактировать теги'),
           icon: <Pencil size={17} />,
-          action: () => setDialog({ kind: 'tags', track: menu.track }),
+          action: () => openSequence('tags'),
           separator: true,
         },
         {
@@ -199,7 +271,7 @@ export function App() {
             ? t('Изменить закрепление')
             : t('Закрепить на главной'),
           icon: <Pin size={17} />,
-          action: () => setDialog({ kind: 'pin', track: menu.track }),
+          action: () => openSequence('pin'),
         },
         ...(playlist
           ? [
@@ -207,9 +279,13 @@ export function App() {
                 label: t('Убрать из плейлиста'),
                 icon: <X size={17} />,
                 action: () =>
-                  void run(() =>
-                    useStore.getState().removeFromPlaylist(playlist.id, menu.track.id),
-                  ),
+                  void run(async () => {
+                    const ids = new Set(menuTracks.map((track) => track.id));
+                    await useStore.getState().savePlaylist({
+                      ...playlist,
+                      trackIds: playlist.trackIds.filter((id) => !ids.has(id)),
+                    });
+                  }),
               },
             ]
           : []),
@@ -217,7 +293,20 @@ export function App() {
           label: t('Убрать из библиотеки'),
           icon: <Trash2 size={17} />,
           danger: true,
-          action: () => void run(() => useStore.getState().removeTrack(menu.track.id)),
+          action: () =>
+            void run(async () => {
+              for (const track of menuTracks) await useStore.getState().removeTrack(track.id);
+              exitSelection();
+            }),
+        },
+        {
+          label: t('Выделить'),
+          icon: <CheckCircle2 size={17} />,
+          separator: true,
+          action: () => {
+            setSelectionMode(true);
+            setSelected((previous) => new Set([...previous, menu.track.id]));
+          },
         },
       ]
     : [];
@@ -345,6 +434,22 @@ export function App() {
                   </div>
                 </div>
                 <div className="library-actions">
+                  {selectionMode && !grouped && section !== 'playlists' && (
+                    <>
+                      <span className="selection-count">
+                        {t('Выбрано: {count}', { count: visibleSelected.length })}
+                      </span>
+                      <button
+                        className="button tonal small"
+                        onClick={() => setSelected(new Set(tracks.map((track) => track.id)))}
+                      >
+                        {t('Выделить все')}
+                      </button>
+                      <IconButton label={t('Отменить выделение')} onClick={exitSelection}>
+                        <X size={18} />
+                      </IconButton>
+                    </>
+                  )}
                   {section === 'playlists' && (
                     <button
                       className="button tonal small"
@@ -404,6 +509,9 @@ export function App() {
                   tracks={tracks}
                   onMenu={openMenu}
                   onEdit={openEdit}
+                  selectionMode={selectionMode}
+                  selected={selected}
+                  onToggle={toggleSelection}
                 />
               ) : (
                 <TrackGrid
@@ -411,6 +519,9 @@ export function App() {
                   tracks={tracks}
                   onMenu={openMenu}
                   onEdit={openEdit}
+                  selectionMode={selectionMode}
+                  selected={selected}
+                  onToggle={toggleSelection}
                 />
               )}
             </section>
@@ -472,37 +583,52 @@ export function App() {
           items={menuItems}
           onClose={closeMenu}
           footer={
-            <>
-              <span>
-                <FolderOpen size={14} />
-                {t('Папка файла')}
-              </span>
-              <p dir="ltr" title={parentFolder(menu.track.path) ?? undefined}>
-                {parentFolder(menu.track.path) ?? t('Папка не указана')}
-              </p>
-            </>
+            !multiple ? (
+              <>
+                <span>
+                  <FolderOpen size={14} />
+                  {t('Папка файла')}
+                </span>
+                <p dir="ltr" title={parentFolder(menu.track.path) ?? undefined}>
+                  {parentFolder(menu.track.path) ?? t('Папка не указана')}
+                </p>
+              </>
+            ) : undefined
           }
         />
       )}
-      {dialog?.kind === 'tags' && <TagEditor track={dialog.track} onClose={closeDialog} />}
+      {dialog?.kind === 'tags' && (
+        <TagEditor key={dialog.track.id} track={dialog.track} onClose={closeDialog} />
+      )}
       {dialog?.kind === 'playlist' && (
-        <PlaylistDialog playlist={dialog.playlist} track={dialog.track} onClose={closeDialog} />
+        <PlaylistDialog
+          playlist={dialog.playlist}
+          track={dialog.track}
+          tracks={dialog.tracks}
+          onClose={closeDialog}
+        />
       )}
       {dialog?.kind === 'settings' && <SettingsDialog onClose={closeDialog} />}
-      {dialog?.kind === 'pin' && <PinDialog track={dialog.track} onClose={closeDialog} />}
+      {dialog?.kind === 'pin' && (
+        <PinDialog key={dialog.track?.id} track={dialog.track} onClose={closeDialog} />
+      )}
       {dialog?.kind === 'add' && (
         <Modal title={t('Добавить в плейлист')} onClose={closeDialog}>
           <p className="dialog-description">
-            {dialog.track.title} · {artistName(dialog.track)}
+            {dialog.tracks.length === 1
+              ? `${dialog.tracks[0].title} · ${artistName(dialog.tracks[0])}`
+              : plural(dialog.tracks.length)}
           </p>
           <div className="playlist-picker">
             {library.playlists.map((item) => (
               <button
                 key={item.id}
-                disabled={item.trackIds.includes(dialog.track.id)}
+                disabled={dialog.tracks.every((track) => item.trackIds.includes(track.id))}
                 onClick={() =>
                   void run(async () => {
-                    await useStore.getState().addToPlaylist(item.id, dialog.track.id);
+                    const ids = new Set(item.trackIds);
+                    for (const track of dialog.tracks) ids.add(track.id);
+                    await useStore.getState().savePlaylist({ ...item, trackIds: [...ids] });
                     closeDialog();
                   })
                 }
@@ -514,7 +640,7 @@ export function App() {
                   {item.name}
                   <small>{plural(item.trackIds.length)}</small>
                 </span>
-                {item.trackIds.includes(dialog.track.id) ? (
+                {dialog.tracks.every((track) => item.trackIds.includes(track.id)) ? (
                   <Check size={18} />
                 ) : (
                   <ChevronRight size={18} />
@@ -524,7 +650,7 @@ export function App() {
           </div>
           <button
             className="button tonal"
-            onClick={() => setDialog({ kind: 'playlist', track: dialog.track })}
+            onClick={() => setDialog({ kind: 'playlist', tracks: dialog.tracks })}
           >
             <Plus size={18} />
             {t('Создать плейлист')}

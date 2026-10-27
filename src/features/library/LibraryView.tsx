@@ -4,6 +4,7 @@ import type { MouseEvent } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   ArrowUpDown,
+  Check,
   Clock3,
   Heart,
   MoreHorizontal,
@@ -34,6 +35,9 @@ interface Props {
   tracks: Track[];
   onMenu(event: MouseEvent, track: Track): void;
   onEdit(track: Track): void;
+  selectionMode?: boolean;
+  selected?: Set<string>;
+  onToggle?(track: Track): void;
 }
 export const TrackRow = memo(function TrackRow({
   track,
@@ -41,12 +45,18 @@ export const TrackRow = memo(function TrackRow({
   queue,
   onMenu,
   onEdit,
+  selectionMode,
+  selected,
+  onToggle,
 }: {
   track: Track;
   index: number;
   queue: string[];
   onMenu: Props['onMenu'];
   onEdit: Props['onEdit'];
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggle?: Props['onToggle'];
 }) {
   useLanguage();
   const current = useStore((s) => s.playback.trackId === track.id);
@@ -61,7 +71,14 @@ export const TrackRow = memo(function TrackRow({
     <div
       role="row"
       data-track-id={track.id}
-      className={`track-row ${current ? 'current-track' : ''} ${!track.available ? 'unavailable' : ''}`}
+      className={`track-row ${current ? 'current-track' : ''} ${selected ? 'selected-track' : ''} ${selectionMode ? 'selecting' : ''} ${!track.available ? 'unavailable' : ''}`}
+      onClickCapture={(e) => {
+        if (e.altKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          onToggle?.(track);
+        }
+      }}
       draggable
       onDragStart={(e) => {
         e.dataTransfer.setData('application/x-sonotune-track', track.id);
@@ -132,7 +149,7 @@ export const TrackRow = memo(function TrackRow({
       <div role="cell" className="track-duration">
         {track.duration ? formatTime(track.duration) : '—'}
       </div>
-      <div role="cell">
+      <div role="cell" className="track-end">
         <IconButton
           label={t('Действия: {title}', { title: track.title })}
           onClick={(e) => onMenu(e, track)}
@@ -145,12 +162,41 @@ export const TrackRow = memo(function TrackRow({
         >
           <MoreHorizontal size={20} />
         </IconButton>
+        {selectionMode && (
+          <SelectionButton track={track} selected={!!selected} onToggle={onToggle} />
+        )}
       </div>
     </div>
   );
 });
 
-export function TrackList({ tracks, onMenu, onEdit }: Props) {
+function SelectionButton({
+  track,
+  selected,
+  onToggle,
+}: {
+  track: Track;
+  selected: boolean;
+  onToggle?: Props['onToggle'];
+}) {
+  return (
+    <button
+      type="button"
+      className={`track-selection ${selected ? 'checked' : ''}`}
+      role="checkbox"
+      aria-checked={selected}
+      aria-label={t('Выделить {title}', { title: track.title })}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle?.(track);
+      }}
+    >
+      {selected && <Check size={15} strokeWidth={3} />}
+    </button>
+  );
+}
+
+export function TrackList({ tracks, onMenu, onEdit, selectionMode, selected, onToggle }: Props) {
   useLanguage();
   const parent = useRef<HTMLDivElement>(null);
   const reveal = useStore((s) => s.reveal);
@@ -193,7 +239,7 @@ export function TrackList({ tracks, onMenu, onEdit }: Props) {
       aria-label={t('Список треков')}
       aria-rowcount={tracks.length + 1}
     >
-      <div className="track-table-head track-row" role="row">
+      <div className={`track-table-head track-row ${selectionMode ? 'selecting' : ''}`} role="row">
         <span role="columnheader">#</span>
         <span role="columnheader">
           {t('Название')}
@@ -233,6 +279,9 @@ export function TrackList({ tracks, onMenu, onEdit }: Props) {
                 queue={queue.current}
                 onMenu={onMenu}
                 onEdit={onEdit}
+                selectionMode={selectionMode}
+                selected={selected?.has(tracks[row.index].id)}
+                onToggle={onToggle}
               />
             </div>
           ))}
@@ -241,7 +290,7 @@ export function TrackList({ tracks, onMenu, onEdit }: Props) {
     </div>
   );
 }
-export function TrackGrid({ tracks, onMenu }: Props) {
+export function TrackGrid({ tracks, onMenu, selectionMode, selected, onToggle }: Props) {
   useLanguage();
   const parent = useRef<HTMLDivElement>(null);
   const columns = useColumns(parent);
@@ -266,8 +315,16 @@ export function TrackGrid({ tracks, onMenu }: Props) {
           >
             {tracks.slice(row.index * columns, row.index * columns + columns).map((track) => (
               <div
-                className="track-card"
+                className={`track-card ${selected?.has(track.id) ? 'selected-track' : ''}`}
                 key={track.id}
+                data-track-id={track.id}
+                onClickCapture={(e) => {
+                  if (e.altKey) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onToggle?.(track);
+                  }
+                }}
                 onContextMenu={(e) => onMenu(e, track)}
                 draggable
                 onDragStart={(e) =>
@@ -295,6 +352,13 @@ export function TrackGrid({ tracks, onMenu }: Props) {
                 </button>
                 <div>
                   <strong>{track.title}</strong>
+                  {selectionMode && (
+                    <SelectionButton
+                      track={track}
+                      selected={!!selected?.has(track.id)}
+                      onToggle={onToggle}
+                    />
+                  )}
                   <IconButton
                     label={t('Действия: {title}', { title: track.title })}
                     onClick={(e) => onMenu(e, track)}

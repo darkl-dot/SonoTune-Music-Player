@@ -34,6 +34,12 @@ export function setLanguage(language: Language) {
 }
 
 export const english: Record<string, string> = {
+  Выделить: 'Select',
+  'Выделить {title}': 'Select {title}',
+  'Выделить все': 'Select all',
+  'Отменить выделение': 'Cancel selection',
+  'Выбрано: {count}': 'Selected: {count}',
+  'Выбранные треки добавлены в очередь': 'Selected tracks added to the queue',
   'Папка файла': 'File folder',
   'Папка не указана': 'Folder not provided',
   'Работа приложения': 'App behavior',

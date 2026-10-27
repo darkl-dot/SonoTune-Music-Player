@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.1.4 — 2026-10-27
+
+- Select several tracks at once with Alt+click in the list or grid, or with Select in a track's context menu.
+- A selection bar shows the selected count and offers Select all and Clear selection. Alt+A selects every visible track, and Escape leaves selection.
+- Context-menu actions apply to the whole selection: play, queue, add to a playlist, favorite, edit tags, pin, remove from a playlist, or remove from the library.
+- Tag and pin editors open one after another for each selected track.
+- Selection follows the current view and resets when the section or grouping changes.
+- English/Russian labels and regression coverage for track selection, keyboard control, and multi-track playlist actions.
+
 ## v1.1.3 — 2026-10-18
 
 - Remove the library status footer to give more space to tracks.

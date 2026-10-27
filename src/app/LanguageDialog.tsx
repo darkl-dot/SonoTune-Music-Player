@@ -12,7 +12,7 @@ export function LanguageOptions() {
         aria-pressed={language === 'ru'}
         onClick={() => setLanguage('ru')}
       >
-        Русский<small>Nunito</small>
+        Русский
       </button>
       <button
         type="button"
@@ -20,7 +20,7 @@ export function LanguageOptions() {
         aria-pressed={language === 'en'}
         onClick={() => setLanguage('en')}
       >
-        English<small>Varela Round</small>
+        English
       </button>
     </div>
   );

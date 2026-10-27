@@ -280,13 +280,8 @@
   justify-content: center;
 }
 .language-modal .language-options > button {
-  flex-direction: column;
-  gap: 5px;
-  min-height: 90px;
-}
-.language-options small {
-  font-size: 10px;
-  opacity: 0.7;
+  min-height: 56px;
+  font-size: 16px;
 }
 .language-options > button:lang(ru) {
   font-family: 'Nunito', sans-serif;

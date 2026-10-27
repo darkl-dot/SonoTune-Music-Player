@@ -172,7 +172,7 @@ export function Sidebar({
         >
           <Settings2 size={17} />
           <span>{t('Настройки')}</span>
-          <span className="version">v1.1.3</span>
+          <span className="version">v1.1.4</span>
         </button>
       </div>
     </aside>

@@ -36,6 +36,18 @@ The path can be selected and copied; imports without folder information say so e
 Use the pin icon beside the current song or on any Home highlight card to pin it to
 Home with an optional caption. A filled pin opens the existing pin for editing or removal.
 
+### Work with several tracks
+
+Alt+click tracks in the list or grid to start a selection, or choose **Select** in a track's
+context menu. Checkboxes appear while selection is active, and a selection bar shows the
+count with **Select all** and **Clear selection**. Alt+A selects every visible track, and
+Escape leaves selection.
+
+Right-click any selected track to play, queue, add to a playlist, favorite, edit tags, pin,
+or remove the whole group. Play starts with the first selected track and queues the rest in
+view order. Tag and pin editors open one after another for each track. Selection resets when
+you change the section or grouping.
+
 ### A queue you can shape
 
 Drag songs to reorder them, use the move buttons, remove individual entries, or clear
@@ -81,7 +93,9 @@ an alternative. Ogg/Opus metadata uses its container's tags rather than MP3 ID3 
 | Play / pause                     | `Space`                    |
 | Stop and return to the beginning | `Shift+Space`              |
 | Next / previous                  | `Ctrl+Right` / `Ctrl+Left` |
-| Close a dialog or menu           | `Esc`                      |
+| Add or remove a track from selection | `Alt+click`            |
+| Select all visible tracks        | `Alt+A`                    |
+| Close a dialog or menu; leave selection | `Esc`               |
 
 Playback shortcuts apply when focus is outside inputs, buttons, and dialogs.
 Previous restarts the current song if more than three seconds have elapsed.
