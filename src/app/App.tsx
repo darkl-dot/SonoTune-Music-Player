@@ -59,8 +59,11 @@ import { TitleBar } from './TitleBar';
 import { DesktopBridge } from './DesktopBridge';
 import { PinDialog } from '../features/home/PinDialog';
 
+import { EqualizerBridge, EqualizerView } from '../features/equalizer/EqualizerView';
+
 export function App() {
   const language = useLanguage();
+  const audioWarning = useStore((s) => s.audioWarning);
   const library = useStore((s) => s.library);
   const section = useStore((s) => s.section);
   const group = useStore((s) => s.group);
@@ -321,6 +324,7 @@ export function App() {
     <div className={`${styles.app} ${desktop ? styles.desktop : ''}`}>
       <TitleBar />
       <DesktopBridge />
+      <EqualizerBridge />
       <div className={styles.workspace}>
         <Sidebar
           setDialog={setDialog}
@@ -333,6 +337,7 @@ export function App() {
             setDialog={setDialog}
             search={search}
             controls={
+              section !== 'equalizer' &&
               !hero &&
               tracks.length > 0 &&
               !grouped &&
@@ -374,7 +379,9 @@ export function App() {
               )
             }
           />
-          {hero ? (
+          {section === 'equalizer' ? (
+            <EqualizerView />
+          ) : hero ? (
             <HomeView onPin={(track) => setDialog({ kind: 'pin', track })} />
           ) : (
             <section
@@ -608,7 +615,7 @@ export function App() {
           onClose={closeDialog}
         />
       )}
-      {dialog?.kind === 'settings' && <SettingsDialog onClose={closeDialog} />}
+      {dialog?.kind === 'settings' && !audioWarning && <SettingsDialog onClose={closeDialog} />}
       {dialog?.kind === 'pin' && (
         <PinDialog key={dialog.track?.id} track={dialog.track} onClose={closeDialog} />
       )}
@@ -655,6 +662,31 @@ export function App() {
             <Plus size={18} />
             {t('Создать плейлист')}
           </button>
+        </Modal>
+      )}
+      {audioWarning && (!dialog || dialog.kind === 'settings') && (
+        <Modal
+          title={t('Звуковое устройство недоступно')}
+          onClose={() => useStore.setState({ audioWarning: null })}
+        >
+          <p className="dialog-description">{audioWarning}</p>
+          <div className="modal-footer">
+            <button
+              className="button ghost"
+              onClick={() => useStore.setState({ audioWarning: null })}
+            >
+              {t('Закрыть')}
+            </button>
+            <button
+              className="button primary"
+              onClick={() => {
+                useStore.setState({ audioWarning: null });
+                setDialog({ kind: 'settings' });
+              }}
+            >
+              {t('Выбрать устройство')}
+            </button>
+          </div>
         </Modal>
       )}
       <LanguageDialog />

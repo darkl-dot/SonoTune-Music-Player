@@ -40,6 +40,7 @@ folder, and press Play. Windows x64 and Microsoft Edge WebView2 Runtime are requ
 
 - **Your local library:** MP3, FLAC, WAV, Ogg Vorbis, Opus, M4A, and AAC; search by title, artist, or album.
 - **Gapless playback:** on by default, with a Settings switch. [Format details](docs/gapless-and-formats.md).
+- **Shape the sound:** a ten-band equalizer with presets and a preamp, optional crossfade, and output-device selection.
 - **A look you can change:** artwork colors, fixed palettes, light/dark appearance, and gentle motion.
 - **Your way to listen:** playlists with custom covers, favorites, pinned tracks, and an editable queue.
 - **Pick up later:** saved playback position and queue, restored on pause; choose your startup page.

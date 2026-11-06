@@ -6,6 +6,7 @@ import { desktop } from '../shared/api';
 import type { Settings } from '../shared/types';
 import { LanguageOptions } from './LanguageDialog';
 import { LibraryPreferences } from './LibraryPreferences';
+import { AudioPreferences } from './AudioPreferences';
 import { DesktopPreferences } from './DesktopPreferences';
 
 export function SettingsDialog({ onClose }: { onClose(): void }) {
@@ -15,11 +16,11 @@ export function SettingsDialog({ onClose }: { onClose(): void }) {
   const busy = useStore((s) => s.busy);
   return (
     <Modal title={t('Сделайте SonoTune своим')} onClose={onClose} className="settings-modal">
-      <p className="dialog-description">{t('Ваши цвета, ваша музыка, ваш ритм.')}</p>
       <span className="settings-label">{t('Язык интерфейса')}</span>
       <LanguageOptions />
       <p className="field-hint">{t('Шрифт: Nunito')}</p>
       <LibraryPreferences />
+      <AudioPreferences />
       <DesktopPreferences />
       <span className="settings-label">{t('Оформление')}</span>
       <div className="appearance-options">
@@ -100,7 +101,7 @@ export function SettingsDialog({ onClose }: { onClose(): void }) {
         )}
       </div>
       <div className="settings-about">
-        <strong>SonoTune {!desktop && <span>v1.1.4</span>}</strong>
+        <strong>SonoTune {!desktop && <span>v1.1.5</span>}</strong>
         <p>{t('Музыка рядом. Без аккаунтов и облака.')}</p>
         <span>
           {desktop

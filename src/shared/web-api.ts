@@ -12,6 +12,12 @@ import type {
 import { nextIndex, playbackOrder } from './utils';
 import { t } from './i18n';
 import { ListeningSession } from './listening';
+import {
+  frequencies,
+  flatEqualizer,
+  normalizeEqualizer,
+  type EqualizerSettings,
+} from './equalizer';
 
 const database = openDB('sonotune-preview', 3, {
   upgrade(db, oldVersion) {
@@ -27,6 +33,38 @@ const database = openDB('sonotune-preview', 3, {
 });
 const audio = new Audio();
 audio.preload = 'metadata';
+let eqSettings = flatEqualizer();
+let eqContext: AudioContext | null = null;
+let eqFilters: BiquadFilterNode[] = [];
+let eqPreamp: GainNode | null = null;
+function applyEqualizer() {
+  if (!eqContext || !eqPreamp) return;
+  const at = eqContext.currentTime;
+  eqFilters.forEach((filter, i) =>
+    filter.gain.setTargetAtTime(eqSettings.enabled ? eqSettings.gains[i] : 0, at, 0.02),
+  );
+  eqPreamp.gain.setTargetAtTime(eqSettings.enabled ? 10 ** (eqSettings.preamp / 20) : 1, at, 0.02);
+}
+async function resumeEqualizer() {
+  if (!eqContext && typeof AudioContext !== 'undefined') {
+    eqContext = new AudioContext();
+    let node: AudioNode = eqContext.createMediaElementSource(audio);
+    eqFilters = frequencies.map((frequency) => {
+      const filter = eqContext!.createBiquadFilter();
+      filter.type = 'peaking';
+      filter.frequency.value = Math.min(frequency, eqContext!.sampleRate * 0.45);
+      filter.Q.value = 1.4;
+      node.connect(filter);
+      node = filter;
+      return filter;
+    });
+    eqPreamp = eqContext.createGain();
+    node.connect(eqPreamp);
+    eqPreamp.connect(eqContext.destination);
+    applyEqualizer();
+  }
+  if (eqContext?.state === 'suspended') await eqContext.resume();
+}
 let state: Playback = { ...initialPlayback };
 let onPlayback: (state: Playback) => void = () => {};
 let onError: (message: string) => void = () => {};
@@ -139,7 +177,10 @@ const play = async (id: string, queue: string[], ordered = false, position = 0) 
   audio.volume = state.volume;
   session = null;
   emit();
-  await audio.play();
+  {
+    await resumeEqualizer();
+    await audio.play();
+  }
   if (token === generation) {
     emit();
     checkpoint(true);
@@ -386,6 +427,12 @@ export const webApi: SonoApi = {
   },
   configureScan: async () => {},
   configureGapless: async () => {},
+  audioOutputs: async () => [],
+  configureAudio: async () => {},
+  configureEqualizer: async (value: EqualizerSettings) => {
+    eqSettings = normalizeEqualizer(value);
+    applyEqualizer();
+  },
   savePin: async (id, label) => {
     const db = await database;
     if (!(await db.get('tracks', id)) || [...label].length > 100)
@@ -456,8 +503,10 @@ export const webApi: SonoApi = {
     if (!state.trackId) return;
     if (audio.paused && !sourceUrl)
       await play(state.trackId, state.queue, true, pendingPosition ?? 0);
-    else if (audio.paused) await audio.play();
-    else audio.pause();
+    else if (audio.paused) {
+      await resumeEqualizer();
+      await audio.play();
+    } else audio.pause();
     emit();
     checkpoint(true);
   },

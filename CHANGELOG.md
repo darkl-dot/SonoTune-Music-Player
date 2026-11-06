@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.1.5 — 2026-11-06
+
+- Add a ten-band equalizer from 31 Hz to 16 kHz, with ±12 dB on every band, a preamp, and Flat, Bass, Vocal, Rock, and Electronic presets. A new Equalizer page holds the controls.
+- Changes apply while a song is playing and are smoothed so sliders do not click. The equalizer covers every playback path, including gapless transitions and both tracks during a crossfade.
+- Add crossfade from 0 to 12 seconds in Settings → Audio. Short tracks use a shorter overlap, and manual seek, skip, stop, or output changes cancel the fade instead of leaving a stray tail.
+- Choose an output device in Settings. An explicit device ignores changes to the Windows default and reports a disconnected device rather than silently switching outputs.
+- Quiet the interface: remove the title-bar wordmark, the settings tagline, the Home heading ornament, the sidebar status note, and the separate theme shortcut.
+- Document the equalizer and audio output behavior; extend regression coverage for filters, crossfade, device handling, and audio preferences.
+
 ## v1.1.4 — 2026-10-27
 
 - Select several tracks at once with Alt+click in the list or grid, or with Select in a track's context menu.

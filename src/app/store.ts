@@ -34,6 +34,7 @@ interface Store {
   savePin(id: string, label: string): Promise<void>;
   deletePin(id: string): Promise<void>;
   toasts: Toast[];
+  audioWarning: string | null;
   setSection(section: Section): void;
   setGroup(group: string | null): void;
   setQuery(query: string): void;
@@ -72,6 +73,7 @@ export const useStore = create<Store>((set, get) => ({
   settings: savedSettings,
   reveal: null,
   toasts: [],
+  audioWarning: null,
   setSection: (section) => {
     localStorage.setItem('sonotune-last-section', section);
     set({ section, group: null, query: '', reveal: null });
@@ -112,6 +114,10 @@ export const useStore = create<Store>((set, get) => ({
   setView: (view) => set({ view }),
   setSettings: (settings) => {
     const value = normalizeSettings({ ...get().settings, ...settings });
+    if ('crossfade' in settings || 'outputDevice' in settings)
+      void run(async () =>
+        (await api).configureAudio(value.crossfade ?? 0, value.outputDevice ?? null),
+      );
     if ('gapless' in settings)
       void run(async () => (await api).configureGapless(value.gapless !== false));
     if ('scanIntervalMinutes' in settings)
@@ -120,6 +126,16 @@ export const useStore = create<Store>((set, get) => ({
     set({ settings: value });
   },
   notify: (message, error) => {
+    if (
+      error &&
+      (message.includes('Звуковое устройство изменилось') ||
+        message.includes('Выбранное звуковое устройство недоступно') ||
+        message.includes('audio device changed') ||
+        message.includes('Selected audio device is unavailable'))
+    ) {
+      set({ audioWarning: message });
+      return;
+    }
     const id = crypto.randomUUID();
     set((s) => ({ toasts: [...s.toasts.slice(-2), { id, message, error }] }));
     setTimeout(() => get().dismiss(id), error ? 9500 : 5000);
@@ -260,6 +276,11 @@ export async function initialize() {
     });
     await service.configureScan(useStore.getState().settings.scanIntervalMinutes ?? null);
     await service.configureGapless(useStore.getState().settings.gapless !== false);
+    if (service.configureAudio)
+      await service.configureAudio(
+        useStore.getState().settings.crossfade ?? 0,
+        useStore.getState().settings.outputDevice ?? null,
+      );
     const savedVolume = Number(localStorage.getItem('sonotune-volume') ?? '0.7');
     if (!useStore.getState().playback.trackId)
       await service.volume(

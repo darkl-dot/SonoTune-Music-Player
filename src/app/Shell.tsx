@@ -15,6 +15,7 @@ import {
   Search,
   Settings2,
   Sparkles,
+  SlidersHorizontal,
   Tag,
   UsersRound,
   X,
@@ -32,6 +33,7 @@ export const navigation = [
   { id: 'artists', label: 'Исполнители', icon: UsersRound },
   { id: 'albums', label: 'Альбомы', icon: Album },
   { id: 'genres', label: 'Жанры', icon: Tag },
+  { id: 'equalizer', label: 'Эквалайзер', icon: SlidersHorizontal },
 ] as const;
 
 interface ShellProps {
@@ -152,10 +154,6 @@ export function Sidebar({
         </nav>
       </div>
       <div className={styles.sidebarBottom}>
-        <div className="local-note">
-          <span className="status-dot" />
-          <span>{t('Только ваша музыка')}</span>
-        </div>
         <button
           className="button import-button"
           disabled={busy}
@@ -172,14 +170,13 @@ export function Sidebar({
         >
           <Settings2 size={17} />
           <span>{t('Настройки')}</span>
-          <span className="version">v1.1.4</span>
+          <span className="version">v1.1.5</span>
         </button>
       </div>
     </aside>
   );
 }
 export function Topbar({
-  setDialog,
   search,
   controls,
 }: ShellProps & { search: RefObject<HTMLInputElement | null>; controls?: ReactNode }) {
@@ -206,13 +203,6 @@ export function Topbar({
       </div>
       {controls}
       <CategorySignature />
-      <IconButton
-        label={t('Настройки оформления')}
-        className="theme-shortcut"
-        onClick={() => setDialog({ kind: 'settings' })}
-      >
-        <Sparkles size={21} />
-      </IconButton>
     </header>
   );
 }

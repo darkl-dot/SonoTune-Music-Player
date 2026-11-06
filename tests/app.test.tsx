@@ -161,7 +161,7 @@ it('chooses English on first run, persists it, translates categories and switche
   }
   fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
   const settings = screen.getByRole('dialog', { name: 'Make SonoTune yours' });
-  expect(within(settings).getByText('v1.1.4')).toBeTruthy();
+  expect(within(settings).getByText('v1.1.5')).toBeTruthy();
   fireEvent.click(within(settings).getByRole('button', { name: /Русский/ }));
   expect(document.documentElement.lang).toBe('ru');
   expect(localStorage.getItem('sonotune-language')).toBe('ru');
@@ -279,4 +279,18 @@ it('selects tracks, applies a playlist action to the selection, and supports key
   expect(
     screen.getByRole('checkbox', { name: 'Выделить Second' }).getAttribute('aria-checked'),
   ).toBe('true');
+});
+it('shows the themed audio warning without stacking it over the Settings dialog', () => {
+  render(<App />);
+  fireEvent.click(screen.getByRole('button', { name: 'Настройки' }));
+  act(() =>
+    useStore.setState({
+      audioWarning: 'Звуковое устройство изменилось. Нажмите Play, чтобы продолжить.',
+    }),
+  );
+  expect(screen.getAllByRole('dialog')).toHaveLength(1);
+  expect(screen.getByRole('dialog', { name: 'Звуковое устройство недоступно' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Выбрать устройство' }));
+  expect(screen.getAllByRole('dialog')).toHaveLength(1);
+  expect(screen.getByRole('dialog', { name: 'Сделайте SonoTune своим' })).toBeTruthy();
 });

@@ -1,0 +1,157 @@
+.equalizer-page {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 28px 32px 36px;
+}
+.eq-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 25px;
+  color: var(--primary);
+}
+.eq-heading h2 {
+  color: var(--text);
+  font-size: 32px;
+  margin: 8px 0;
+}
+.eq-heading p {
+  color: var(--text-muted);
+  margin: 0;
+  font-size: 14px;
+}
+.eq-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  padding: 24px;
+}
+.eq-toolbar,
+.eq-tools {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.eq-toolbar {
+  justify-content: space-between;
+  margin-bottom: 30px;
+}
+.eq-toolbar .preference-toggle {
+  gap: 22px;
+  margin: 0;
+}
+.eq-tools {
+  gap: 10px;
+}
+.eq-scroll {
+  overflow-x: auto;
+  padding: 8px 2px 20px;
+}
+.eq-bands {
+  display: grid;
+  grid-template-columns: 32px repeat(10, minmax(42px, 1fr));
+  min-width: 540px;
+  gap: 8px;
+}
+.eq-band {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.eq-band output {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--primary);
+}
+.eq-rail {
+  height: 230px;
+  display: flex;
+  justify-content: center;
+  position: relative;
+  width: 100%;
+}
+.eq-rail::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px dashed var(--outline);
+  opacity: 0.45;
+  pointer-events: none;
+}
+.eq-rail input {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  appearance: none;
+  width: 12px;
+  height: 230px;
+  background: var(--primary-container);
+  border-radius: 20px;
+  cursor: pointer;
+  margin: 0;
+  z-index: 1;
+}
+.eq-rail input::-webkit-slider-thumb {
+  appearance: none;
+  width: 28px;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--primary);
+  border: 3px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+.eq-rail input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 7px;
+}
+.eq-scale {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 35px 0 29px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.eq-preamp {
+  margin-top: 18px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+.eq-preamp label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.eq-preamp output {
+  color: var(--primary);
+}
+.eq-preamp input {
+  width: 100%;
+  accent-color: var(--primary);
+  margin: 20px 0 5px;
+}
+.eq-preamp p {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-bottom: 0;
+}
+.eq-bypassed .eq-scroll,
+.eq-bypassed .eq-preamp {
+  opacity: 0.6;
+}
+@media (max-width: 760px) {
+  .equalizer-page {
+    padding: 20px 14px;
+  }
+  .eq-card {
+    padding: 18px 12px;
+  }
+}

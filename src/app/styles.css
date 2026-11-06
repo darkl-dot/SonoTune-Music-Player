@@ -1803,3 +1803,25 @@ kbd {
     display: none;
   }
 }
+
+.settings-modal {
+  scrollbar-width: none;
+}
+.settings-modal::-webkit-scrollbar {
+  display: none;
+}
+
+.audio-crossfade {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  gap: 16px;
+}
+.audio-preferences > input[type='range'] {
+  width: 100%;
+  accent-color: var(--primary);
+  margin-block: 18px 4px;
+}
+.audio-crossfade output {
+  color: var(--primary);
+}

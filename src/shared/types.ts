@@ -80,6 +80,7 @@ export type Section =
   | 'tracks'
   | 'artists'
   | 'albums'
+  | 'equalizer'
   | 'genres'
   | 'favorites'
   | 'playlists'
@@ -91,4 +92,6 @@ export interface Settings {
   scanIntervalMinutes?: number | null;
   showHomeBanner?: boolean;
   gapless?: boolean;
+  crossfade?: number;
+  outputDevice?: string | null;
 }

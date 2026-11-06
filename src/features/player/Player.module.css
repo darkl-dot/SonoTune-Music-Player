@@ -137,11 +137,7 @@
   opacity: 0;
   cursor: pointer;
 }
-.waveSlider:focus-within {
-  outline: 2px solid var(--primary);
-  outline-offset: 3px;
-  border-radius: 8px;
-}
+
 .waveRemainder {
   height: 3px;
   border-radius: 2px;

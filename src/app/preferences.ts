@@ -6,6 +6,7 @@ export const pages = [
   'artists',
   'albums',
   'genres',
+  'equalizer',
   'favorites',
   'playlists',
 ] as const;
@@ -33,6 +34,11 @@ export function normalizeSettings(value: Partial<Settings>): Settings {
         : null,
     showHomeBanner: value.showHomeBanner !== false,
     gapless: value.gapless !== false,
+    crossfade:
+      typeof value.crossfade === 'number' && Number.isFinite(value.crossfade)
+        ? Math.max(0, Math.min(12, value.crossfade))
+        : 0,
+    outputDevice: typeof value.outputDevice === 'string' ? value.outputDevice : null,
   };
 }
 export function startupSection(settings: Settings, library: Library, last: string | null): Section {

@@ -9,7 +9,7 @@ use crate::{
     storage::Database,
     system_media::{external_repeat, MediaAction, SystemMedia},
 };
-use rodio::{OutputStream, OutputStreamBuilder, Sink};
+use rodio::{OutputStream, Sink};
 use std::{
     path::{Path, PathBuf},
     sync::{
@@ -102,6 +102,12 @@ impl AudioEngine {
                     output_generation: 0,
                     wake: Some(audio_send),
                     gapless: true,
+                    crossfade: 0.0,
+                    output_device: None,
+                    fading: None,
+                    starting_fade: false,
+                    device_check: Instant::now(),
+                    equalizer: Default::default(),
                     next_slot: None,
                     preload_failed: None,
                     media,
@@ -181,6 +187,12 @@ struct Engine {
     output_generation: u64,
     wake: Option<Sender<Message>>,
     gapless: bool,
+    crossfade: f64,
+    output_device: Option<String>,
+    fading: Option<(Sink, f64)>,
+    starting_fade: bool,
+    device_check: Instant,
+    equalizer: crate::equalizer::Shared,
     next_slot: Option<crate::gapless::NextSlot>,
     preload_failed: Option<String>,
     media: Option<SystemMedia>,
@@ -340,6 +352,9 @@ impl Engine {
         }
         if let Some(sink) = &self.sink {
             sink.play();
+            if let Some((tail, _)) = &self.fading {
+                tail.play();
+            }
             self.mark_started();
         }
         Ok(())
@@ -437,7 +452,11 @@ impl Engine {
             .unwrap_or(track.duration);
         let sink = self.create_sink()?;
         sink.pause();
-        sink.set_volume(self.state.volume);
+        sink.set_volume(if self.starting_fade {
+            0.0
+        } else {
+            self.state.volume
+        });
         // Keep a fixed format across boundaries, including mixed-rate albums.
         sink.append(audio::normalized(decoder));
         self.next_slot.take();
@@ -466,6 +485,9 @@ impl Engine {
         Ok(())
     }
     fn device_event(&mut self, generation: Option<u64>, error: &str) {
+        if generation.is_none() && self.output_device.is_some() {
+            return;
+        }
         if generation.is_none_or(|value| value == self.output_generation) {
             self.device_lost(error);
         }
@@ -474,6 +496,7 @@ impl Engine {
         if self.sink.is_none() {
             return;
         }
+        self.fading.take();
         self.stream.take();
         self.sync_boundary();
         self.tick();
@@ -499,13 +522,18 @@ impl Engine {
         }
         self.events
             .diagnostic(format!("Audio output interrupted: {error}"));
-        self.error("Звуковое устройство изменилось. Нажмите Play, чтобы продолжить.".into());
+        if error != "Output selected" {
+            self.error("Звуковое устройство изменилось. Нажмите Play, чтобы продолжить.".into());
+        }
     }
     fn create_sink(&mut self) -> Result<Sink, String> {
         #[cfg(test)]
         if let Some(mixer) = &self.test_mixer {
             let (sink, output) = Sink::new();
-            mixer.add(crate::gapless::FixedOutput(output));
+            mixer.add(crate::equalizer::Equalized::new(
+                crate::gapless::FixedOutput(output),
+                self.equalizer.clone(),
+            ));
             return Ok(sink);
         }
         if self.stream.is_none() {
@@ -513,7 +541,7 @@ impl Engine {
             let generation = self.output_generation;
             let send = self.wake.clone();
             self.stream = Some(
-                OutputStreamBuilder::from_default_device()
+                crate::audio_outputs::builder(self.output_device.as_deref())
                     .map_err(|e| format!("Не удалось открыть звуковое устройство: {e}"))?
                     .with_error_callback(move |error| {
                         if let Some(send) = &send {
@@ -523,7 +551,7 @@ impl Engine {
                             });
                         }
                     })
-                    .open_stream_or_fallback()
+                    .open_stream()
                     .map_err(|e| format!("Не удалось открыть звуковое устройство: {e}"))?,
             );
         }
@@ -532,10 +560,18 @@ impl Engine {
             .as_ref()
             .unwrap()
             .mixer()
-            .add(crate::gapless::FixedOutput(output));
+            .add(crate::equalizer::Equalized::new(
+                crate::gapless::FixedOutput(output),
+                self.equalizer.clone(),
+            ));
         Ok(sink)
     }
     fn advance(&mut self, direction: i8, ended: bool) -> Result<(), String> {
+        // A fade may still be running when the incoming track ends early (wrong
+        // metadata duration or a short decode). The old tail must not outlive the
+        // track it belongs to, or the next tick would steer the new sink with a
+        // stale fraction.
+        self.cancel_fade();
         if !ended
             && direction == -1
             && self.state.position > 3.0
@@ -644,6 +680,17 @@ impl Engine {
             &command,
             PlayerCommand::Snapshot | PlayerCommand::RefreshMetadata
         );
+        if matches!(
+            &command,
+            PlayerCommand::Play { .. }
+                | PlayerCommand::Step { .. }
+                | PlayerCommand::Seek { .. }
+                | PlayerCommand::Stop
+                | PlayerCommand::SelectQueue { .. }
+                | PlayerCommand::AudioSettings { .. }
+        ) {
+            self.cancel_fade();
+        }
         match command {
             PlayerCommand::Play { id, queue } => {
                 if queue.len() > 100_000 {
@@ -664,6 +711,9 @@ impl Engine {
             PlayerCommand::Toggle => {
                 if let Some(sink) = self.sink.as_ref().filter(|s| !s.empty() && !s.is_paused()) {
                     sink.pause();
+                    if let Some((tail, _)) = &self.fading {
+                        tail.pause();
+                    }
                 } else {
                     self.resume()?;
                 }
@@ -674,6 +724,9 @@ impl Engine {
             PlayerCommand::Pause => {
                 if let Some(sink) = &self.sink {
                     sink.pause();
+                    if let Some((tail, _)) = &self.fading {
+                        tail.pause();
+                    }
                 }
                 self.state.playing = false;
             }
@@ -806,6 +859,28 @@ impl Engine {
                     }
                 }
             }
+            PlayerCommand::Equalizer { value } => {
+                *self.equalizer.lock().unwrap() = value.normalized();
+            }
+            PlayerCommand::AudioSettings { crossfade, device } => {
+                if !crossfade.is_finite() {
+                    return Err("Некорректная длительность кроссфейда".into());
+                }
+                self.crossfade = crossfade.clamp(0.0, 12.0);
+                if let Some(slot) = &self.next_slot {
+                    let _ = slot.replace(None);
+                }
+                if device != self.output_device {
+                    let playing = self.state.playing;
+                    if self.sink.is_some() {
+                        self.device_lost("Output selected");
+                    }
+                    self.output_device = device;
+                    if playing {
+                        self.resume()?;
+                    }
+                }
+            }
             PlayerCommand::Snapshot => {}
             PlayerCommand::Gapless { enabled } => {
                 self.db.save_state("gapless", &enabled)?;
@@ -835,7 +910,7 @@ impl Engine {
         }
     }
     fn prepare_next(&mut self) {
-        if !self.gapless || self.sink.as_ref().is_none_or(Sink::empty) {
+        if self.crossfade > 0.0 || !self.gapless || self.sink.as_ref().is_none_or(Sink::empty) {
             return;
         }
         let index = self
@@ -992,16 +1067,105 @@ impl Engine {
         };
         self.command(command)
     }
+    fn cancel_fade(&mut self) {
+        self.fading.take();
+        if let Some(sink) = &self.sink {
+            sink.set_volume(self.state.volume);
+        }
+    }
+    fn crossfade_tick(&mut self) {
+        if let Some((tail, duration)) = &self.fading {
+            if let Some(sink) = &self.sink {
+                let fraction = (sink.get_pos().as_secs_f64() / duration).clamp(0.0, 1.0) as f32;
+                sink.set_volume(self.state.volume * fraction);
+                tail.set_volume(self.state.volume * (1.0 - fraction));
+                if fraction >= 1.0 || tail.empty() {
+                    self.cancel_fade();
+                }
+            }
+            return;
+        }
+        if self.crossfade <= 0.0 {
+            return;
+        }
+        let Some(sink) = &self.sink else {
+            return;
+        };
+        if sink.is_paused() || sink.empty() {
+            return;
+        }
+        let remaining = self.state.duration - sink.get_pos().as_secs_f64();
+        if remaining > self.crossfade.min(self.state.duration / 2.0) || remaining <= 0.0 {
+            return;
+        }
+        let index = self
+            .state
+            .queue
+            .iter()
+            .position(|id| Some(id) == self.state.track_id.as_ref());
+        let Some(next) = next_index(
+            self.state.queue.len(),
+            index,
+            1,
+            false,
+            &self.state.repeat,
+            true,
+            0,
+        ) else {
+            return;
+        };
+        let id = self.state.queue[next].clone();
+        if self.preload_failed.as_ref() == Some(&id) {
+            return;
+        }
+        let next_duration = self.db.track(&id).map(|t| t.duration).unwrap_or(0.0);
+        let maximum = self
+            .crossfade
+            .min(self.state.duration / 2.0)
+            .min(next_duration / 2.0);
+        if remaining > maximum {
+            return;
+        }
+        let duration = remaining;
+        if duration <= 0.01 {
+            return;
+        }
+        let old = self.sink.take().unwrap();
+        self.starting_fade = true;
+        let result = self.load(&id, true);
+        self.starting_fade = false;
+        match result {
+            Ok(()) => {
+                self.fading = Some((old, duration));
+            }
+            Err(_) => {
+                self.sink = Some(old);
+                self.preload_failed = Some(id);
+            }
+        }
+    }
     fn run(&mut self, receive: Receiver<Message>) {
         loop {
             let wait = if self.state.playing {
-                Duration::from_millis(250)
+                Duration::from_millis(if self.crossfade > 0.0 { 15 } else { 250 })
             } else {
                 Duration::from_secs(10)
             };
             let incoming = receive.recv_timeout(wait);
             self.tick();
             self.sync_boundary();
+            if self.device_check.elapsed() >= Duration::from_secs(1) {
+                self.device_check = Instant::now();
+                if let Some(id) = &self.output_device {
+                    if self.sink.is_some()
+                        && crate::audio_outputs::devices()
+                            .is_ok_and(|devices| !devices.iter().any(|(key, _, _)| key == id))
+                    {
+                        self.device_lost("Output disconnected");
+                        self.emit();
+                    }
+                }
+            }
             match incoming {
                 Ok(Message::DeviceLost {
                     generation,
@@ -1056,6 +1220,7 @@ impl Engine {
                     let _ = reply.send(result);
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {
+                    self.crossfade_tick();
                     self.finish_ended();
                     self.prepare_next();
                     if self.state.playing || self.sink.as_ref().is_some_and(Sink::empty) {
@@ -1177,6 +1342,12 @@ mod tests {
                 output_generation: 0,
                 wake: None,
                 gapless: false,
+                crossfade: 0.0,
+                output_device: None,
+                fading: None,
+                starting_fade: false,
+                device_check: Instant::now(),
+                equalizer: Default::default(),
                 next_slot: None,
                 preload_failed: None,
                 events: events.clone(),
@@ -1453,6 +1624,62 @@ mod tests {
         }
     }
     #[test]
+    fn crossfade_overlaps_and_pause_seek_cancel_the_tail() {
+        let mut h = Harness::new();
+        h.engine.crossfade = 12.0;
+        h.start(0, Repeat::None);
+        let duration = h.engine.state.duration;
+        for _ in 0..(duration * 0.65 * 96000.0) as usize {
+            h.output.next();
+        }
+        h.engine.crossfade_tick();
+        assert_eq!(h.engine.state.track_id.as_ref(), Some(&h.ids[1]));
+        assert!(h.engine.fading.is_some());
+        assert_eq!(h.engine.sink.as_ref().unwrap().volume(), 0.0);
+        h.command(PlayerCommand::Pause);
+        assert!(h.engine.fading.as_ref().unwrap().0.is_paused());
+        h.command(PlayerCommand::Resume);
+        assert!(!h.engine.fading.as_ref().unwrap().0.is_paused());
+        for _ in 0..(duration * 0.1 * 96000.0) as usize {
+            h.output.next();
+        }
+        h.engine.crossfade_tick();
+        let volume = h.engine.sink.as_ref().unwrap().volume();
+        assert!(volume > 0.0 && volume < h.engine.state.volume);
+        let done = std::sync::atomic::AtomicBool::new(false);
+        std::thread::scope(|scope| {
+            let output = &mut h.output;
+            let done = &done;
+            scope.spawn(move || {
+                while !done.load(std::sync::atomic::Ordering::Relaxed) {
+                    output.next();
+                }
+            });
+            h.engine
+                .command(PlayerCommand::Seek { seconds: 0.0 })
+                .unwrap();
+            done.store(true, std::sync::atomic::Ordering::Relaxed);
+        });
+        assert!(h.engine.fading.is_none());
+        assert_eq!(
+            h.engine.sink.as_ref().unwrap().volume(),
+            h.engine.state.volume
+        );
+    }
+    #[test]
+    fn selected_output_ignores_system_default_changes_but_handles_stream_loss() {
+        let mut h = Harness::new();
+        h.start(0, Repeat::None);
+        h.engine.output_device = Some("Selected".into());
+        h.engine.device_event(None, "Default changed");
+        assert!(h.engine.sink.is_some());
+        h.engine
+            .device_event(Some(h.engine.output_generation), "Disconnected");
+        assert!(h.engine.sink.is_none());
+        assert!(!h.engine.state.playing);
+        assert!(h.engine.pending_position.is_some());
+    }
+    #[test]
     fn gapless_mixer_outputs_exact_concatenation_without_waiting_for_controller_poll() {
         for (left, right) in [
             ("tone.wav", "tone.wav"),
@@ -1697,6 +1924,17 @@ mod tests {
         assert_eq!(h.engine.state.track_id.as_ref(), Some(&h.ids[2]));
         assert!(h.engine.state.playing);
         assert_eq!(h.events.errors.lock().unwrap().len(), 2);
+    }
+    #[test]
+    fn natural_advance_releases_an_active_crossfade_tail() {
+        let mut h = Harness::new();
+        h.start(0, Repeat::All);
+        let (tail, _output) = Sink::new();
+        h.engine.fading = Some((tail, 5.0));
+        h.engine.advance(1, true).unwrap();
+        assert!(h.engine.fading.is_none());
+        assert_eq!(h.engine.state.track_id.as_ref(), Some(&h.ids[1]));
+        assert!(h.engine.state.playing);
     }
     #[test]
     fn queue_boundaries_and_repeat() {

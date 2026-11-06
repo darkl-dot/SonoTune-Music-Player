@@ -64,7 +64,6 @@ function WindowTitleBar() {
       <div className={styles.dragRegion} data-tauri-drag-region>
         <span className={styles.brand} aria-hidden="true">
           <AudioLines size={16} />
-          SonoTune
         </span>
       </div>
       <div className={styles.controls} role="group" aria-label={t('Управление окном')}>

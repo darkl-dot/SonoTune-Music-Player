@@ -161,24 +161,55 @@ impl Default for Playback {
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum PlayerCommand {
-    Play { id: String, queue: Vec<String> },
+    Play {
+        id: String,
+        queue: Vec<String>,
+    },
     Toggle,
     Resume,
     Pause,
     Stop,
-    Step { direction: i8 },
-    Seek { seconds: f64 },
-    Volume { value: f32 },
-    Mode { shuffle: bool, repeat: Repeat },
-    Enqueue { id: String },
-    Remove { id: String },
+    Step {
+        direction: i8,
+    },
+    Seek {
+        seconds: f64,
+    },
+    Volume {
+        value: f32,
+    },
+    Mode {
+        shuffle: bool,
+        repeat: Repeat,
+    },
+    Enqueue {
+        id: String,
+    },
+    Remove {
+        id: String,
+    },
     Snapshot,
     RefreshMetadata,
-    SelectQueue { id: String },
-    ReorderQueue { ids: Vec<String> },
-    RemoveQueue { id: String },
+    SelectQueue {
+        id: String,
+    },
+    ReorderQueue {
+        ids: Vec<String>,
+    },
+    RemoveQueue {
+        id: String,
+    },
     ClearNext,
-    Gapless { enabled: bool },
+    Gapless {
+        enabled: bool,
+    },
+    AudioSettings {
+        crossfade: f64,
+        device: Option<String>,
+    },
+    Equalizer {
+        value: crate::equalizer::Settings,
+    },
 }
 
 pub fn now() -> u64 {

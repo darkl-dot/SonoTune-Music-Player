@@ -1,4 +1,6 @@
 mod audio;
+mod audio_outputs;
+mod equalizer;
 mod commands;
 mod desktop;
 #[cfg(windows)]
@@ -106,6 +108,7 @@ pub fn run() {
             commands::delete_pin,
             commands::configure_scan,
             commands::player_command,
+            audio_outputs::audio_outputs,
             desktop::desktop_preferences,
             desktop::configure_desktop,
             desktop::register_open_with,

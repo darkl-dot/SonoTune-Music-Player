@@ -134,7 +134,7 @@ export function HomeView({ onPin }: { onPin?(track?: Track): void } = {}) {
         <section className={styles.highlights} aria-label={t('Ваша музыка сегодня')}>
           <div className={styles.heading}>
             <span className="eyebrow">{t('ВАША МУЗЫКА')}</span>
-            <Sparkles size={17} />
+
           </div>
           <div className={styles.cards} aria-busy={!loaded}>
             <HomeCard

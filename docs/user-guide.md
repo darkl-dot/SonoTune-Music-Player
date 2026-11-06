@@ -23,6 +23,7 @@ Your library and preferences are stored separately from the application folder.
 | Artists, albums, genres, favorites, and playlists  | Recent, most-played, and random song cards       |
 | Custom playlist covers                             | Pinned tracks with optional personal captions    |
 | Metadata and artwork editing                       | Bundled fonts and reduced-motion support         |
+|                                                    | Ten-band equalizer, crossfade, output selection  |
 
 ### Pick up where you left off
 
@@ -47,6 +48,25 @@ Right-click any selected track to play, queue, add to a playlist, favorite, edit
 or remove the whole group. Play starts with the first selected track and queues the rest in
 view order. Tag and pin editors open one after another for each track. Selection resets when
 you change the section or grouping.
+
+### Shape your sound
+
+**Equalizer** in the sidebar has ten bands from 31 Hz to 16 kHz, each adjustable by
+±12 dB in half-decibel steps. Double-click a band to reset it, or use **Reset** to clear
+the whole curve. **Preset** offers Flat, Bass, Vocal, Rock, and Electronic settings;
+moving any band afterwards switches the label to Custom. The switch at the top bypasses
+processing without discarding your curve.
+
+**Preamp** lowers the level from 0 to −24 dB. Boosting bands can push the output into
+clipping and SonoTune has no limiter, so lower the preamp when you raise several bands.
+Changes are smoothed and apply to the current song immediately.
+
+Settings → **Audio** also has crossfade, from 0 to 12 seconds. At 0 the player keeps
+its gapless behavior; with a longer overlap the next track starts early and the two
+fade across each other, shortened for short tracks. Seeking, skipping, stopping, or
+changing the output ends an overlap cleanly. You can also choose an output device
+there; an explicit choice does not follow changes to the Windows default, and if the
+device disappears playback pauses with a warning rather than switching silently.
 
 ### A queue you can shape
 
@@ -136,10 +156,12 @@ Windows is the supported release platform. Linux and macOS builds are future wor
 Gapless playback is enabled by default; turn it off in Settings with **Gapless playback**
 (**Без пауз между треками** in Russian). It prepares the next file ahead of time and
 preserves silence that belongs to the recording. [Codec details and limits](gapless-and-formats.md).
+Crossfade supersedes that preparation: while it is on, the next track is opened at the
+transition instead of ahead of time.
 
 M4A supports AAC-LC and ALAC; raw AAC uses ADTS. AAC and Opus decoding support mono and stereo.
-HE-AAC, DRM-protected files, multichannel AAC/Opus, crossfade,
-and real-time filesystem watching are not implemented. Renaming or moving a file
+HE-AAC, DRM-protected files, multichannel AAC/Opus, and real-time filesystem watching
+are not implemented. Renaming or moving a file
 outside the app imports it as a new library entry at the next scan.
 
 Lightweight operation and smooth interaction are design goals, not a claim of measured

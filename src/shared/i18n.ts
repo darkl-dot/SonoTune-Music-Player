@@ -34,6 +34,37 @@ export function setLanguage(language: Language) {
 }
 
 export const english: Record<string, string> = {
+  Звук: 'Audio',
+  Кроссфейд: 'Crossfade',
+  с: 's',
+  'Длительность кроссфейда': 'Crossfade duration',
+  'Плавное перекрытие треков. 0 с — выключено. Для коротких треков переход сокращается.':
+    'Overlap tracks smoothly. 0 s disables crossfade. Short tracks use a shorter transition.',
+  'Устройство вывода': 'Output device',
+  'По умолчанию Windows': 'Windows default',
+  'Выбранное устройство недоступно': 'Selected device unavailable',
+  'Обновить устройства': 'Refresh devices',
+  'Не удалось получить список устройств': 'Could not list audio devices',
+  'Звуковое устройство недоступно': 'Audio device unavailable',
+  'Выбрать устройство': 'Choose device',
+  'Выбранное звуковое устройство недоступно. Выберите другой выход в настройках.':
+    'Selected audio device is unavailable. Choose another output in Settings.',
+  Эквалайзер: 'Equalizer',
+  'Настрой звук под себя': 'Shape your sound',
+  'Эквалайзер включён': 'Equalizer enabled',
+  Пресет: 'Preset',
+  Ровный: 'Flat',
+  Бас: 'Bass',
+  Вокал: 'Vocal',
+  Рок: 'Rock',
+  Электроника: 'Electronic',
+  'Своя настройка': 'Custom',
+  Сбросить: 'Reset',
+  дБ: 'dB',
+  Гц: 'Hz',
+  'Общее усиление': 'Preamp',
+  'Если поднимаешь частоты, снизь общее усиление, чтобы звук не перегружался.':
+    'When boosting frequencies, lower the preamp to avoid distortion.',
   Выделить: 'Select',
   'Выделить {title}': 'Select {title}',
   'Выделить все': 'Select all',
