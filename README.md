@@ -58,4 +58,6 @@ No account or cloud library required. Windows is the current release platform.
 - [Development](docs/development.md) — prerequisites, build commands, and project structure.
 - [Changelog](CHANGELOG.md) · [Verification](VERIFICATION.md) · [Contributing](CONTRIBUTING.md)
 
+Built with AI coding assistants (Gemini / ChatGPT), reviewed and verified with automated tests ([Verification](VERIFICATION.md)).
+
 Licensed under [MIT](LICENSE). Bundled fonts and dependencies retain their own licenses.
