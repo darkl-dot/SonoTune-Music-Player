@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/darkl-dot/SonoTune-Music-Player/main/docs/assets/release-v1.1.6-banner.svg" alt="SonoTune 1.1.6 — Big Update" width="840" />
+</p>
+
 # SonoTune v1.1.6 — Big Update
 
 This is the biggest update SonoTune has had since v1. It started as a focused audio-quality release and grew into a full upgrade across playback, appearance, library housekeeping, and everyday ergonomics — still local-first, still lightweight, still no accounts or cloud.
