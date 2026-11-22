@@ -15,9 +15,24 @@ const service = vi.hoisted(() => ({
   seek: vi.fn(async (_seconds: number) => {}),
   mode: vi.fn(async (_shuffle: boolean, _repeat: string) => {}),
   volume: vi.fn(async (_value: number) => {}),
+  audioOutputs: vi.fn(async () => [
+    { id: 'default', name: 'Speakers' },
+    { id: 'headphones:0', name: 'Headphones' },
+  ]),
+  configureAudio: vi.fn(async (_crossfade: number, _device: string | null) => {}),
+  sleepTimer: vi.fn(async (_minutes: number | null, _afterTrack: boolean) => {}),
+}));
+const toggleMiniPlayer = vi.hoisted(() => vi.fn(async (_alwaysOnTop: boolean) => true));
+vi.mock('../src/shared/desktop-api', () => ({
+  desktopApi: {
+    toggleMiniPlayer,
+    setMiniAlwaysOnTop: vi.fn(async () => {}),
+    showMainWindow: vi.fn(async () => {}),
+  },
 }));
 vi.mock('../src/shared/api', () => ({
   api: Promise.resolve(service),
+  desktop: true,
   initialPlayback: {
     trackId: null,
     queue: [],
@@ -238,6 +253,15 @@ it('resets an unfinished scrub on track change and disables transport without a 
     expect((screen.getByLabelText(name) as HTMLButtonElement).disabled).toBe(true);
 });
 
+it('changes the volume with the mouse wheel over the slider', async () => {
+  render(<Player onQueue={() => {}} />);
+  const slider = screen.getByLabelText('Громкость');
+  fireEvent.wheel(slider, { deltaY: -120 });
+  await waitFor(() => expect(service.volume).toHaveBeenCalledWith(0.75));
+  fireEvent.wheel(slider, { deltaY: 120 });
+  await waitFor(() => expect(service.volume).toHaveBeenLastCalledWith(0.65));
+});
+
 it('mutes, restores volume, and handles playback shortcuts outside input fields', async () => {
   render(<Player onQueue={() => {}} />);
   fireEvent.click(screen.getByLabelText('Выключить звук'));
@@ -250,4 +274,55 @@ it('mutes, restores volume, and handles playback shortcuts outside input fields'
   fireEvent.keyDown(screen.getByLabelText('Громкость'), { code: 'Space' });
   await waitFor(() => expect(service.stop).toHaveBeenCalledOnce());
   expect(service.toggle).toHaveBeenCalledOnce();
+});
+
+it('opens the output devices from the volume icon on right-click and saves the choice', async () => {
+  render(<Player onQueue={() => {}} />);
+  const volumeButton = screen.getByLabelText('Выключить звук');
+  fireEvent.contextMenu(volumeButton);
+  await screen.findByRole('listbox', { name: 'Устройство вывода' });
+  expect(service.audioOutputs).toHaveBeenCalledOnce();
+  expect(service.volume).not.toHaveBeenCalled();
+  await screen.findByRole('option', { name: 'Headphones' });
+  expect(
+    screen.getByRole('option', { name: 'По умолчанию Windows' }).getAttribute('aria-selected'),
+  ).toBe('true');
+  fireEvent.click(screen.getByRole('option', { name: 'Headphones' }));
+  await waitFor(() => expect(service.configureAudio).toHaveBeenCalledWith(0, 'headphones:0'));
+  expect(useStore.getState().settings.outputDevice).toBe('headphones:0');
+  expect(JSON.parse(localStorage.getItem('sonotune-settings')!).outputDevice).toBe('headphones:0');
+  await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+  fireEvent.click(volumeButton);
+  await waitFor(() => expect(service.volume).toHaveBeenCalledWith(0));
+  fireEvent.contextMenu(volumeButton);
+  const reopened = await screen.findByRole('listbox', { name: 'Устройство вывода' });
+  await screen.findByRole('option', { name: 'Headphones' });
+  expect(screen.getByRole('option', { name: 'Headphones' }).getAttribute('aria-selected')).toBe(
+    'true',
+  );
+  fireEvent.keyDown(reopened, { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+});
+
+it('keeps a saved device that disappeared in the list instead of choosing another output', async () => {
+  useStore.setState((s) => ({ settings: { ...s.settings, outputDevice: 'missing' } }));
+  service.audioOutputs.mockResolvedValueOnce([{ id: 'default', name: 'Speakers' }]);
+  render(<Player onQueue={() => {}} />);
+  fireEvent.contextMenu(screen.getByLabelText('Выключить звук'));
+  const missing = await screen.findByRole('option', { name: 'Выбранное устройство недоступно' });
+  expect(missing.getAttribute('aria-selected')).toBe('true');
+  fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Home' });
+  fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Enter' });
+  await waitFor(() => expect(service.configureAudio).toHaveBeenLastCalledWith(0, null));
+});
+
+it('sets sleep timer and toggles mini-player from the player bar', async () => {
+  render(<Player onQueue={() => {}} />);
+  fireEvent.click(screen.getByLabelText('Таймер сна'));
+  const menu = await screen.findByRole('listbox', { name: 'Таймер сна' });
+  expect(menu).toBeTruthy();
+  fireEvent.click(screen.getByRole('option', { name: /30 минут/ }));
+  await waitFor(() => expect(service.sleepTimer).toHaveBeenCalledWith(30, false));
+  fireEvent.click(screen.getByLabelText('Мини-плеер'));
+  await waitFor(() => expect(toggleMiniPlayer).toHaveBeenCalledWith(true));
 });

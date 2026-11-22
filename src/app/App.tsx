@@ -6,6 +6,7 @@ import {
   Check,
   CheckCircle2,
   ChevronRight,
+  Download,
   FolderOpen,
   Heart,
   ImagePlus,
@@ -21,6 +22,7 @@ import {
   Plus,
   Shuffle,
   Trash2,
+  Upload,
   X,
 } from 'lucide-react';
 import { initialize, run, useStore } from './store';
@@ -57,9 +59,11 @@ import { HomeView } from '../features/home/HomeView';
 import { PlaylistArtwork } from '../features/playlists/PlaylistArtwork';
 import { TitleBar } from './TitleBar';
 import { DesktopBridge } from './DesktopBridge';
+import { Tooltips } from '../shared/Tooltip';
 import { PinDialog } from '../features/home/PinDialog';
 
 import { EqualizerBridge, EqualizerView } from '../features/equalizer/EqualizerView';
+import { WebMiniOverlay } from '../features/mini/MiniPlayer';
 
 export function App() {
   const language = useLanguage();
@@ -73,6 +77,8 @@ export function App() {
   const busy = useStore((s) => s.busy);
   const scan = useStore((s) => s.scan);
   const toasts = useStore((s) => s.toasts);
+  const fileDragOver = useStore((s) => s.fileDragOver);
+  const miniOpen = useStore((s) => s.miniOpen);
   const [sort, setSort] = useState('added');
   const [dialog, setDialog] = useState<Dialog>(null);
   const [queueOpen, setQueueOpen] = useState(false);
@@ -276,6 +282,18 @@ export function App() {
           icon: <Pin size={17} />,
           action: () => openSequence('pin'),
         },
+        ...(desktop && !multiple
+          ? [
+              {
+                label: t('Показать в Проводнике'),
+                icon: <FolderOpen size={17} />,
+                action: () =>
+                  void run(async () => {
+                    await (await api).revealTrack?.(menu.track.id);
+                  }),
+              },
+            ]
+          : []),
         ...(playlist
           ? [
               {
@@ -325,6 +343,7 @@ export function App() {
       <TitleBar />
       <DesktopBridge />
       <EqualizerBridge />
+      <Tooltips />
       <div className={styles.workspace}>
         <Sidebar
           setDialog={setDialog}
@@ -458,21 +477,38 @@ export function App() {
                     </>
                   )}
                   {section === 'playlists' && (
-                    <button
-                      className="button tonal small"
-                      onClick={() => setDialog({ kind: 'playlist' })}
-                    >
-                      <Plus size={17} />
-                      {t('Создать плейлист')}
-                    </button>
+                    <>
+                      <button
+                        className="button ghost small"
+                        onClick={() => void useStore.getState().importPlaylist()}
+                      >
+                        <Upload size={16} />
+                        {t('Импорт M3U')}
+                      </button>
+                      <button
+                        className="button tonal small"
+                        onClick={() => setDialog({ kind: 'playlist' })}
+                      >
+                        <Plus size={17} />
+                        {t('Создать плейлист')}
+                      </button>
+                    </>
                   )}
                   {playlist && (
-                    <IconButton
-                      label={t('Переименовать или удалить плейлист')}
-                      onClick={() => setDialog({ kind: 'playlist', playlist })}
-                    >
-                      <MoreHorizontal size={22} />
-                    </IconButton>
+                    <>
+                      <IconButton
+                        label={t('Экспортировать плейлист (M3U8)')}
+                        onClick={() => void useStore.getState().exportPlaylist(playlist.id)}
+                      >
+                        <Download size={19} />
+                      </IconButton>
+                      <IconButton
+                        label={t('Переименовать или удалить плейлист')}
+                        onClick={() => setDialog({ kind: 'playlist', playlist })}
+                      >
+                        <MoreHorizontal size={22} />
+                      </IconButton>
+                    </>
                   )}
                   {tracks.length > 0 && section !== 'playlists' && (
                     <>
@@ -688,6 +724,16 @@ export function App() {
             </button>
           </div>
         </Modal>
+      )}
+      {!desktop && miniOpen && <WebMiniOverlay />}
+      {fileDragOver && (
+        <div className="file-drop-overlay" aria-live="polite">
+          <div className="file-drop-card">
+            <FolderOpen size={34} />
+            <strong>{t('Отпустите файлы или папки')}</strong>
+            <span>{t('Папки добавятся в библиотеку, а треки сразу заиграют')}</span>
+          </div>
+        </div>
       )}
       <LanguageDialog />
     </div>

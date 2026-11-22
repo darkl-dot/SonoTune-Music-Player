@@ -1,68 +1,95 @@
+//! Keeps the library current: one pass at startup, then a recursive
+//! file-system watcher that rescans only the folders that changed.
 use crate::commands::{self, AppState};
+use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use std::{
-    sync::{atomic::Ordering, mpsc, Arc, Mutex},
+    collections::HashSet,
+    path::PathBuf,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Arc, Mutex,
+    },
     thread::JoinHandle,
     time::{Duration, Instant},
 };
 use tauri::{AppHandle, Emitter};
 
-enum Signal {
-    Configure(Option<Duration>),
-    Stop,
-}
-struct Schedule {
-    send: mpsc::Sender<Signal>,
+/// Wait for the file system to settle after the last change.
+const QUIET: Duration = Duration::from_millis(1200);
+/// Pick up added or removed library roots without restarting the app.
+const ROOT_REFRESH: Duration = Duration::from_secs(5);
+
+pub struct FolderWatcher {
+    stop: Arc<AtomicBool>,
     thread: Mutex<Option<JoinHandle<()>>>,
 }
-impl Schedule {
-    fn start(
-        interval: Option<Duration>,
-        initial_delay: Duration,
-        mut job: impl FnMut() -> bool + Send + 'static,
-    ) -> Self {
-        let (send, receive) = mpsc::channel();
+impl FolderWatcher {
+    pub fn start(app: AppHandle, state: Arc<AppState>) -> Self {
+        let stop = Arc::new(AtomicBool::new(false));
+        let flag = stop.clone();
         let thread = std::thread::Builder::new()
-            .name("sonotune-scan".into())
+            .name("sonotune-watch".into())
             .spawn(move || {
-                let mut interval = interval;
-                let mut first = true;
-                let mut deadline = Some(Instant::now() + initial_delay);
+                std::thread::sleep(Duration::from_millis(350));
+                if flag.load(Ordering::Acquire) || state.closing.load(Ordering::Acquire) {
+                    return;
+                }
+                rescan(&app, &state, None);
+                let (send, receive) = mpsc::channel::<notify::Result<Event>>();
+                let mut watcher = match notify::recommended_watcher(move |event| {
+                    let _ = send.send(event);
+                }) {
+                    Ok(watcher) => watcher,
+                    Err(error) => {
+                        let _ = app.emit(
+                            "playback-error",
+                            format!("Слежение за папками недоступно: {error}"),
+                        );
+                        return;
+                    }
+                };
+                let mut watched: HashSet<PathBuf> = HashSet::new();
+                let mut pending: HashSet<PathBuf> = HashSet::new();
+                let mut last_event = Instant::now();
+                let mut roots_at = Instant::now() - ROOT_REFRESH;
                 loop {
-                    let signal = match deadline {
-                        Some(at) => {
-                            receive.recv_timeout(at.saturating_duration_since(Instant::now()))
-                        }
-                        None => receive
-                            .recv()
-                            .map_err(|_| mpsc::RecvTimeoutError::Disconnected),
-                    };
-                    match signal {
-                        Ok(Signal::Stop) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
-                        Ok(Signal::Configure(value)) => {
-                            interval = value;
-                            if !first {
-                                deadline = interval.map(|delay| Instant::now() + delay);
+                    if flag.load(Ordering::Acquire) || state.closing.load(Ordering::Acquire) {
+                        break;
+                    }
+                    if roots_at.elapsed() >= ROOT_REFRESH {
+                        roots_at = Instant::now();
+                        sync_roots(&mut watcher, &mut watched, &state);
+                    }
+                    match receive.recv_timeout(Duration::from_millis(250)) {
+                        Ok(Ok(event)) => {
+                            if event.kind.is_access() {
+                                continue;
                             }
-                        }
-                        Err(mpsc::RecvTimeoutError::Timeout) => {
-                            if job() {
-                                first = false;
-                                deadline = interval.map(|delay| Instant::now() + delay);
-                            } else {
-                                deadline = Some(Instant::now() + Duration::from_secs(2));
+                            for path in event.paths {
+                                queue(&mut pending, &path);
                             }
+                            last_event = Instant::now();
+                        }
+                        Ok(Err(_)) => {}
+                        Err(mpsc::RecvTimeoutError::Timeout) => {}
+                        Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                    }
+                    if !pending.is_empty() && last_event.elapsed() >= QUIET {
+                        let folders = collapse(pending.drain().collect());
+                        if !folders.is_empty() {
+                            rescan(&app, &state, Some(&folders));
                         }
                     }
                 }
             })
-            .expect("Could not start scan scheduler");
+            .expect("Could not start folder watcher");
         Self {
-            send,
+            stop,
             thread: Mutex::new(Some(thread)),
         }
     }
-    fn stop(&self) {
-        let _ = self.send.send(Signal::Stop);
+    pub fn shutdown(&self) {
+        self.stop.store(true, Ordering::Release);
         if let Ok(mut thread) = self.thread.lock() {
             if let Some(thread) = thread.take() {
                 let _ = thread.join();
@@ -70,89 +97,110 @@ impl Schedule {
         }
     }
 }
-pub fn interval(minutes: Option<u32>) -> Result<Option<Duration>, String> {
-    if minutes.is_some_and(|n| n == 0 || n > 10_080) {
-        return Err("Укажите целое число минут от 1 до 10080.".into());
+
+fn sync_roots(watcher: &mut RecommendedWatcher, watched: &mut HashSet<PathBuf>, state: &AppState) {
+    let roots: HashSet<PathBuf> = state
+        .db
+        .folders()
+        .unwrap_or_default()
+        .into_iter()
+        .map(PathBuf::from)
+        .filter(|path| path.is_dir())
+        .collect();
+    let added: Vec<PathBuf> = roots.difference(watched).cloned().collect();
+    for root in added {
+        if watcher.watch(&root, RecursiveMode::Recursive).is_ok() {
+            watched.insert(root);
+        }
     }
-    Ok(minutes.map(|minutes| Duration::from_secs(u64::from(minutes) * 60)))
+    let removed: Vec<PathBuf> = watched.difference(&roots).cloned().collect();
+    for root in removed {
+        let _ = watcher.unwatch(&root);
+        watched.remove(&root);
+    }
 }
-pub struct BackgroundScanner {
-    schedule: Schedule,
-    state: Arc<AppState>,
+
+/// Queue the closest existing folder that contains the changed path.
+fn queue(pending: &mut HashSet<PathBuf>, path: &PathBuf) {
+    let folder = if path.is_dir() {
+        path.clone()
+    } else {
+        match path.parent() {
+            Some(parent) => parent.to_path_buf(),
+            None => return,
+        }
+    };
+    if folder.is_dir() {
+        pending.insert(folder);
+    }
 }
-impl BackgroundScanner {
-    pub fn start(app: AppHandle, state: Arc<AppState>) -> Self {
-        let minutes = state
+
+/// A nested folder is already covered by its parent.
+fn collapse(mut folders: Vec<PathBuf>) -> Vec<PathBuf> {
+    folders.sort();
+    let mut out: Vec<PathBuf> = Vec::new();
+    for folder in folders {
+        if out.last().is_none_or(|last| !folder.starts_with(last)) {
+            out.push(folder);
+        }
+    }
+    out
+}
+
+fn rescan(app: &AppHandle, state: &AppState, folders: Option<&[PathBuf]>) {
+    let roots = match folders {
+        Some(folders) => folders.to_vec(),
+        None => state
             .db
-            .state::<Option<u32>>("scan-interval")
-            .ok()
-            .flatten()
-            .flatten();
-        let delay = interval(minutes).ok().flatten();
-        let worker_state = state.clone();
-        let schedule = Schedule::start(delay, Duration::from_millis(350), move || {
-            if worker_state.closing.load(Ordering::Acquire) {
-                return true;
+            .folders()
+            .unwrap_or_default()
+            .into_iter()
+            .map(PathBuf::from)
+            .collect(),
+    };
+    for attempt in 0..5 {
+        match commands::scan_paths(state, &roots, None) {
+            Ok(library) => {
+                let _ = app.emit("library-updated", &library);
+                return;
             }
-            if worker_state.scanning.load(Ordering::Acquire) {
-                return false;
+            Err(error) if error == "Сканирование уже выполняется." => {
+                std::thread::sleep(Duration::from_millis(500 * (attempt + 1)));
             }
-            match commands::scan_folders(&worker_state, None) {
-                Ok(library) => {
-                    let _ = app.emit("library-updated", &library);
-                }
-                Err(error) if error == "Сканирование уже выполняется." => {
-                    return false
-                }
-                Err(error) => {
-                    let _ = app.emit("playback-error", error);
-                }
+            Err(error) => {
+                let _ = app.emit("playback-error", error);
+                return;
             }
-            true
-        });
-        Self { schedule, state }
-    }
-    pub fn configure(&self, minutes: Option<u32>) -> Result<(), String> {
-        let delay = interval(minutes)?;
-        self.state.db.save_state("scan-interval", &minutes)?;
-        self.schedule
-            .send
-            .send(Signal::Configure(delay))
-            .map_err(|e| e.to_string())
-    }
-    pub fn shutdown(&self) {
-        self.state.closing.store(true, Ordering::Release);
-        self.state.cancel.store(true, Ordering::Release);
-        self.schedule.stop();
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
     #[test]
-    fn scheduler_runs_once_then_sleeps_until_configured_and_stops_promptly() {
-        let (send, receive) = mpsc::channel();
-        let schedule = Schedule::start(None, Duration::from_millis(2), move || {
-            let _ = send.send(());
-            true
-        });
-        receive.recv_timeout(Duration::from_secs(1)).unwrap();
-        assert!(receive.recv_timeout(Duration::from_millis(30)).is_err());
-        schedule
-            .send
-            .send(Signal::Configure(Some(Duration::from_millis(10))))
-            .unwrap();
-        receive.recv_timeout(Duration::from_secs(1)).unwrap();
-        schedule.send.send(Signal::Configure(None)).unwrap();
-        std::thread::sleep(Duration::from_millis(15));
-        while receive.try_recv().is_ok() {}
-        assert!(receive.recv_timeout(Duration::from_millis(30)).is_err());
-        let before = Instant::now();
-        schedule.stop();
-        assert!(before.elapsed() < Duration::from_secs(1));
-        assert!(interval(Some(0)).is_err());
-        assert!(interval(Some(10_081)).is_err());
-        assert_eq!(interval(Some(7)).unwrap(), Some(Duration::from_secs(420)));
+    fn collapses_nested_folders() {
+        let folders = collapse(vec![
+            PathBuf::from("/music/album"),
+            PathBuf::from("/music"),
+            PathBuf::from("/other"),
+        ]);
+        assert_eq!(
+            folders,
+            vec![PathBuf::from("/music"), PathBuf::from("/other")]
+        );
+        assert_eq!(Path::new("/music"), Path::new("/music"));
+    }
+    #[test]
+    fn queues_the_parent_of_a_changed_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let file = directory.path().join("song.flac");
+        std::fs::write(&file, b"x").unwrap();
+        let mut pending = HashSet::new();
+        queue(&mut pending, &file);
+        queue(&mut pending, &directory.path().to_path_buf());
+        assert_eq!(pending.len(), 1);
+        assert!(pending.contains(&directory.path().to_path_buf()));
     }
 }

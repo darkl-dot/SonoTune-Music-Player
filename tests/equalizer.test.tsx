@@ -10,8 +10,9 @@ vi.mock('../src/shared/api', () => ({
   initialPlayback: {},
 }));
 beforeEach(() => {
+  localStorage.clear();
   setLanguage('ru');
-  useEqualizer.setState({ value: flatEqualizer() });
+  useEqualizer.setState({ value: flatEqualizer(), customPresets: [] });
   configure.mockClear();
 });
 afterEach(cleanup);
@@ -51,4 +52,21 @@ it('sanitizes persisted and untrusted gains', () => {
     preamp: 0,
     gains: [12, -12, 0, 0, 0, 0, 0, 0, 0, 0],
   });
+});
+
+it('saves, selects, and deletes custom equalizer presets', () => {
+  useEqualizer.setState({
+    value: { enabled: true, preamp: -1, gains: [3, 2, 1, 0, 0, 0, 1, 2, 3, 2] },
+    customPresets: [],
+  });
+  render(<EqualizerView />);
+  fireEvent.click(screen.getByRole('button', { name: 'Сохранить пресет' }));
+  const input = screen.getByLabelText('Название пресета');
+  fireEvent.change(input, { target: { value: 'Наушники' } });
+  fireEvent.submit(input.closest('form')!);
+  expect(useEqualizer.getState().customPresets).toHaveLength(1);
+  expect(useEqualizer.getState().customPresets[0].name).toBe('Наушники');
+  expect(JSON.parse(localStorage.getItem('sonotune-eq-presets')!)).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Удалить пресет' }));
+  expect(useEqualizer.getState().customPresets).toHaveLength(0);
 });

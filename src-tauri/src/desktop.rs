@@ -311,3 +311,39 @@ pub async fn diagnostics(app: AppHandle) -> Result<String, String> {
         Ok(format!("SonoTune v{}\nPlatform: {} / {}\nNative engine: Rodio + Symphonia + libopus\n{playback}\n{preferences}\nRecent errors (session only):\n{}", env!("CARGO_PKG_VERSION"), std::env::consts::OS, std::env::consts::ARCH, if errors.is_empty(){"None"}else{&errors}))
     }).await.map_err(|e| e.to_string())?
 }
+
+#[tauri::command]
+pub async fn toggle_mini_player(app: AppHandle, always_on_top: bool) -> Result<bool, String> {
+    if let Some(window) = app.get_webview_window("mini") {
+        let _ = window.close();
+        return Ok(false);
+    }
+    let window =
+        tauri::WebviewWindowBuilder::new(&app, "mini", tauri::WebviewUrl::App("index.html".into()))
+            .title("SonoTune Mini")
+            .decorations(false)
+            .shadow(true)
+            .resizable(true)
+            .inner_size(390.0, 250.0)
+            .min_inner_size(300.0, 195.0)
+            .background_color(tauri::window::Color(18, 17, 22, 255))
+            .center()
+            .always_on_top(always_on_top)
+            .build()
+            .map_err(|e| e.to_string())?;
+    let _ = window.set_focus();
+    Ok(true)
+}
+
+#[tauri::command]
+pub fn set_mini_always_on_top(app: AppHandle, value: bool) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("mini") {
+        window.set_always_on_top(value).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn show_main_window(app: AppHandle) {
+    show(&app);
+}

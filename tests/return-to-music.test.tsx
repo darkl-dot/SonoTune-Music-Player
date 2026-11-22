@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { LibraryPreferences } from '../src/app/LibraryPreferences';
+import { GeneralPreferences } from '../src/app/GeneralPreferences';
+import { AudioPreferences } from '../src/app/AudioPreferences';
 import { normalizeSettings, pages, startupSection } from '../src/app/preferences';
 import { useStore } from '../src/app/store';
 import { initialPlayback } from '../src/shared/api';
@@ -14,7 +15,8 @@ import { TrackList } from '../src/features/library/LibraryView';
 import type { Track } from '../src/shared/types';
 
 const service = vi.hoisted(() => ({
-  configureScan: vi.fn(async () => {}),
+  configureNormalization: vi.fn(async () => {}),
+  configureLimiter: vi.fn(async () => {}),
   configureGapless: vi.fn(async () => {}),
   savePin: vi.fn(async () => {}),
   deletePin: vi.fn(async () => {}),
@@ -24,6 +26,8 @@ const service = vi.hoisted(() => ({
   playQueued: vi.fn(async () => {}),
   play: vi.fn(async () => {}),
   toggle: vi.fn(async () => {}),
+  audioOutputs: vi.fn(async () => []),
+  loudnessStats: vi.fn(async () => [0, 0] as [number, number]),
 }));
 vi.mock('../src/shared/api', () => ({
   desktop: true,
@@ -108,40 +112,27 @@ it('resolves every startup page, a playlist and the last section with a safe mis
   expect(
     startupSection({ ...normalizeSettings({}), startupPage: 'last' }, library, 'invalid'),
   ).toBe('home');
-  expect(normalizeSettings({ appearance: 'dark', scanIntervalMinutes: -1 })).toMatchObject({
+  expect(normalizeSettings({ appearance: 'dark', normalization: 'bogus' as never })).toMatchObject({
     appearance: 'dark',
     startupPage: 'home',
     showHomeBanner: true,
-    scanIntervalMinutes: null,
+    normalization: 'off',
+    limiter: true,
   });
 });
-it('offers every page and named playlist, persists the choice and validates custom scan minutes', async () => {
-  render(<LibraryPreferences />);
+it('offers every page and named playlist and persists the choice', async () => {
+  render(<GeneralPreferences />);
   fireEvent.click(screen.getByRole('button', { name: 'Стартовая страница' }));
   const options = screen.getAllByRole('option');
   expect(options.length).toBe(9);
   fireEvent.click(screen.getByRole('option', { name: 'Плейлист: Мой микс' }));
   expect(useStore.getState().settings.startupPage).toBe('playlist:mix');
   expect(JSON.parse(localStorage.getItem('sonotune-settings')!).startupPage).toBe('playlist:mix');
-  fireEvent.click(screen.getByRole('button', { name: 'Фоновое сканирование' }));
-  fireEvent.click(screen.getByRole('option', { name: 'Раз в указанное число минут' }));
-  const input = screen.getByLabelText('Интервал в минутах');
-  for (const invalid of ['0', '1.5', '10081', '']) {
-    fireEvent.change(input, { target: { value: invalid } });
-    fireEvent.blur(input);
-    expect(input.getAttribute('aria-invalid')).toBe('true');
-  }
-  fireEvent.change(input, { target: { value: '17' } });
-  fireEvent.blur(input);
-  await waitFor(() => expect(service.configureScan).toHaveBeenLastCalledWith(17));
-  fireEvent.click(screen.getByRole('button', { name: 'Фоновое сканирование' }));
-  fireEvent.click(screen.getByRole('option', { name: 'При старте приложения' }));
-  await waitFor(() => expect(service.configureScan).toHaveBeenLastCalledWith(null));
 });
 it('enables gapless by default and persists changes to the native player', async () => {
   expect(normalizeSettings({}).gapless).toBe(true);
   expect(normalizeSettings({ gapless: false }).gapless).toBe(false);
-  render(<LibraryPreferences />);
+  render(<AudioPreferences />);
   const toggle = screen.getByRole('switch', { name: 'Без пауз между треками' }) as HTMLInputElement;
   expect(toggle.checked).toBe(true);
   fireEvent.click(toggle);
@@ -251,7 +242,7 @@ it('reveals and focuses a far-away track while keeping a 10000-track library vir
 });
 it('localizes the new preferences and pin actions in English', () => {
   setLanguage('en');
-  render(<LibraryPreferences />);
+  render(<GeneralPreferences />);
   expect(screen.getByRole('switch', { name: 'Show the Home banner' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Startup page' })).toBeTruthy();
 });

@@ -29,7 +29,19 @@ export const playbackModes = [
   },
 ] as const;
 
-export function PlaybackMode() {
+export function PlaybackMode({
+  buttonClassName = 'icon-button',
+  activeClassName = 'is-active',
+  iconSize = 19,
+  compact = false,
+  onOpenChange,
+}: {
+  buttonClassName?: string;
+  activeClassName?: string;
+  iconSize?: number;
+  compact?: boolean;
+  onOpenChange?(open: boolean): void;
+} = {}) {
   useLanguage();
   const value = useStore((s) => s.playback.repeat);
   const index = Math.max(
@@ -40,6 +52,9 @@ export function PlaybackMode() {
   const Icon = current.icon;
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
+  useEffect(() => {
+    onOpenChange?.(open && !closing);
+  }, [open, closing, onOpenChange]);
   const [active, setActive] = useState(index);
   const [position, setPosition] = useState({ left: 8, bottom: 120, maxHeight: 340 });
   const trigger = useRef<HTMLButtonElement>(null);
@@ -112,11 +127,16 @@ export function PlaybackMode() {
         8,
         Math.min(anchor.left + anchor.width / 2 - width / 2, window.innerWidth - width - 8),
       ),
-      bottom: Math.max(8, window.innerHeight - anchor.top + 10),
-      maxHeight: Math.max(80, Math.min(window.innerHeight - 72, anchor.top - 48)),
+      bottom: Math.max(8, window.innerHeight - anchor.top + (compact ? 8 : 10)),
+      maxHeight: Math.max(
+        80,
+        compact
+          ? Math.min(window.innerHeight - 16, anchor.top - 14)
+          : Math.min(window.innerHeight - 72, anchor.top - 48),
+      ),
     });
     if (focusMenu.current) menu.current.focus();
-  }, [open]);
+  }, [open, compact]);
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => {
@@ -159,7 +179,7 @@ export function PlaybackMode() {
       <button
         ref={trigger}
         type="button"
-        className={`icon-button ${value === 'one' || value === 'all' ? 'is-active' : ''}`}
+        className={`${buttonClassName} ${value === 'one' || value === 'all' ? activeClassName : ''}`}
         aria-label={t('Режим воспроизведения: {mode}', { mode: t(current.label) })}
         aria-haspopup="listbox"
         aria-expanded={open && !closing}
@@ -189,7 +209,7 @@ export function PlaybackMode() {
           }
         }}
       >
-        <Icon size={19} />
+        <Icon size={iconSize} />
       </button>
       {open &&
         createPortal(
@@ -200,7 +220,7 @@ export function PlaybackMode() {
             tabIndex={-1}
             aria-label={t('Режим воспроизведения')}
             aria-activedescendant={`${id}-${active}`}
-            className={`${styles.popover} ${closing ? styles.closing : ''}`}
+            className={`${styles.popover} ${compact ? styles.compact : ''} ${closing ? styles.closing : ''}`}
             style={position}
             onPointerEnter={() => {
               clearHover();

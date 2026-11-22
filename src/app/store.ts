@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { api, initialPlayback, mergeTrack } from '../shared/api';
+import { api, desktop, initialPlayback, mergeTrack } from '../shared/api';
+import { desktopApi } from '../shared/desktop-api';
 import { localizeError, t } from '../shared/i18n';
 import { normalizeSettings, startupSection } from './preferences';
 import type {
@@ -50,6 +51,14 @@ interface Store {
   removeFromPlaylist(id: string, trackId: string): Promise<void>;
   favorite(track: Track): Promise<void>;
   removeTrack(id: string): Promise<void>;
+  removeTracks(ids: string[]): Promise<void>;
+  removeFolder(path: string): Promise<void>;
+  exportPlaylist(id: string): Promise<void>;
+  importPlaylist(): Promise<void>;
+  fileDragOver: boolean;
+  setFileDragOver(value: boolean): void;
+  miniOpen: boolean;
+  setMiniOpen(value: boolean): void;
   saveTags(id: string, draft: TagDraft, sidecar: boolean): Promise<boolean>;
 }
 let savedSettings = normalizeSettings({});
@@ -74,6 +83,10 @@ export const useStore = create<Store>((set, get) => ({
   reveal: null,
   toasts: [],
   audioWarning: null,
+  fileDragOver: false,
+  miniOpen: false,
+  setFileDragOver: (fileDragOver) => set({ fileDragOver }),
+  setMiniOpen: (miniOpen) => set({ miniOpen }),
   setSection: (section) => {
     localStorage.setItem('sonotune-last-section', section);
     set({ section, group: null, query: '', reveal: null });
@@ -120,8 +133,12 @@ export const useStore = create<Store>((set, get) => ({
       );
     if ('gapless' in settings)
       void run(async () => (await api).configureGapless(value.gapless !== false));
-    if ('scanIntervalMinutes' in settings)
-      void run(async () => (await api).configureScan(value.scanIntervalMinutes ?? null));
+    if ('normalization' in settings)
+      void run(async () => (await api).configureNormalization(value.normalization ?? 'off'));
+    if ('limiter' in settings)
+      void run(async () => (await api).configureLimiter(value.limiter !== false));
+    if ('miniAlwaysOnTop' in settings && desktop)
+      void run(async () => desktopApi.setMiniAlwaysOnTop?.(value.miniAlwaysOnTop !== false));
     localStorage.setItem('sonotune-settings', JSON.stringify(value));
     set({ settings: value });
   },
@@ -217,6 +234,36 @@ export const useStore = create<Store>((set, get) => ({
     await (await api).removeTrack(id);
     set({ library: await (await api).load() });
   },
+  removeTracks: async (ids) => {
+    if (!ids.length) return;
+    const service = await api;
+    const library = service.removeTracks
+      ? await service.removeTracks(ids)
+      : (await Promise.all(ids.map((id) => service.removeTrack(id))), await service.load());
+    set({ library });
+  },
+  removeFolder: async (path) => {
+    const library = await (await api).removeFolder(path);
+    set({ library });
+    get().notify(t('Папка убрана из библиотеки.'));
+  },
+  exportPlaylist: async (id) => {
+    const exported = await (await api).exportPlaylist?.(id);
+    if (exported) get().notify(t('Плейлист экспортирован.'));
+  },
+  importPlaylist: async () => {
+    const result = await (await api).importPlaylist?.();
+    if (!result) return;
+    set({ library: result.library, section: `playlist:${result.playlist.id}`, group: null });
+    get().notify(
+      result.skipped > 0
+        ? t('Плейлист «{name}» импортирован (пропущено файлов: {count}).', {
+            name: result.playlist.name,
+            count: result.skipped,
+          })
+        : t('Плейлист «{name}» импортирован.', { name: result.playlist.name }),
+    );
+  },
   saveTags: async (id, draft, sidecar) => {
     try {
       const result = await (await api).saveTags(id, draft, sidecar);
@@ -244,6 +291,17 @@ export async function run(action: () => Promise<unknown>) {
   }
 }
 let started = false;
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === 'sonotune-settings' && event.newValue) {
+      try {
+        useStore.setState({ settings: normalizeSettings(JSON.parse(event.newValue)) });
+      } catch {
+        /* Ignore malformed storage updates. */
+      }
+    }
+  });
+}
 export async function initialize() {
   if (started) return;
   started = true;
@@ -274,8 +332,9 @@ export async function initialize() {
         localStorage.getItem('sonotune-last-section'),
       ),
     });
-    await service.configureScan(useStore.getState().settings.scanIntervalMinutes ?? null);
     await service.configureGapless(useStore.getState().settings.gapless !== false);
+    await service.configureNormalization(useStore.getState().settings.normalization ?? 'off');
+    await service.configureLimiter(useStore.getState().settings.limiter !== false);
     if (service.configureAudio)
       await service.configureAudio(
         useStore.getState().settings.crossfade ?? 0,
@@ -286,6 +345,34 @@ export async function initialize() {
       await service.volume(
         Number.isFinite(savedVolume) ? Math.max(0, Math.min(1, savedVolume)) : 0.7,
       );
+  } catch (error) {
+    useStore.setState({ loaded: true });
+    useStore.getState().notify(cleanError(error), true);
+  }
+}
+
+export async function initializeMini() {
+  if (started) return;
+  started = true;
+  try {
+    const service = await api;
+    let libraryRevision = 0;
+    await service.subscribe(
+      (playback) => useStore.setState({ playback }),
+      (message) => useStore.getState().notify(localizeError(message), true),
+      ({ trackId, stats }) =>
+        useStore.setState((s) => ({
+          library: { ...s.library, listening: { ...s.library.listening, [trackId]: stats } },
+        })),
+      (library) => {
+        libraryRevision++;
+        useStore.setState({ library });
+      },
+    );
+    const revision = libraryRevision;
+    const library = await service.load();
+    const currentLibrary = revision === libraryRevision ? library : useStore.getState().library;
+    useStore.setState({ library: currentLibrary, loaded: true });
   } catch (error) {
     useStore.setState({ loaded: true });
     useStore.getState().notify(cleanError(error), true);

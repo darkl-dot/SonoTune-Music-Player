@@ -3,6 +3,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useStore } from './store';
 import { trackHue } from '../shared/utils';
 import { desktop } from '../shared/api';
+import { isLightTheme } from '../shared/themes';
 
 export function useTheme() {
   const settings = useStore((s) => s.settings);
@@ -63,7 +64,7 @@ export function useTheme() {
         settings.appearance === 'system' ? (media.matches ? 'dark' : 'light') : settings.appearance;
       if (desktop)
         void getCurrentWindow()
-          .setTheme(root.dataset.theme === 'dark' ? 'dark' : 'light')
+          .setTheme(isLightTheme(root.dataset.theme) ? 'light' : 'dark')
           .catch(() => {});
     };
     apply();

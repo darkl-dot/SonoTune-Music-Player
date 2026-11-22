@@ -1,11 +1,10 @@
-# Verification — SonoTune v1.1.5
+# Verification — SonoTune v1.1.6
 
-Verified on Windows x64 on November 6, 2026.
+Verified on Windows x64 on November 22, 2026.
 
 ## Automated checks
 
-**153 checks passed:** 95 frontend/browser-adapter tests, 56 regular Rust tests, and
-two separately executed native Windows integration tests.
+**193 checks passed:** 115 frontend/browser-adapter tests and 78 regular Rust tests.
 
 ```sh
 pnpm test
@@ -16,146 +15,91 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib native_ -- --ignored --noc
 ```
 
 The two native integration tests are normally ignored because they create a temporary
-real Windows media session or register an audio-device notification. Both were
-explicitly run and passed. The device-notification check does not change physical devices.
+real Windows media session or register an audio-device notification. They passed in the
+v1.1.5 run and were **not** re-executed for this build.
 
-## Desktop integration coverage
+## Leveling and output protection
 
-- Closing hides the window only when the tray is available; the setting and explicit
-  Quit allow a full exit. A failed tray cannot leave an inaccessible hidden application.
-- Per-user startup registration handles Unicode/quoted paths, enabling, disabling,
-  and moved executable paths. Tests use isolated registry keys, not the real Run key.
-- Open-with registration covers all seven extensions, quotes file arguments, and
-  preserves an existing default player. Tests use isolated registry keys.
-- External paths are validated and deduplicated; importing reuses existing track IDs
-  without adding parent directories to the scan list. Frontend tests cover initial
-  file delivery, event delivery, and a late initial response racing a newer request.
-- Device-loss handling in the real decoder's silent mixer preserves position, queue,
-  and listening-session accounting. Repeated and stale-stream callbacks are ignored.
-- Desktop settings read native state, report failed changes, disable close-to-tray
-  when unavailable, and provide manual diagnostic copying when the clipboard fails.
-- Real second-process forwarding and tray input are implemented but were not manually
-  exercised in this run.
+- The limiter is stereo-linked and lives on one internal bus that receives every sink, so a
+  crossfade cannot sum two independently limited outputs. Tests cover ceiling enforcement on a
+  hot signal, sample transparency below the ceiling, shared gain across channels, release after a
+  burst, bypass without added latency, tail flush when the source ends, and a never-ending source
+  that keeps the bus attached to the device.
+- Playback tests verify that the bus is created with the first sink and released on Stop, and that
+  the limiter starts disabled only inside the test harness so existing exact-sample comparisons
+  stay meaningful. The real engine enables it by default.
+- Loudness measurement is checked against generated stereo WAV files: a 0.1-amplitude 997 Hz tone
+  reads about −20 LUFS with a matching true peak, a full-scale file is capped by the peak guard
+  instead of reaching the target, and silence or a missing file becomes an inert row.
+- Gain policy tests cover tag reconstruction (`gain → lufs`), the peak cap, clamping, album
+  energy combination, and preferred album tags. The gain source smooths a live mode change in
+  0.5 dB steps and ignores non-finite targets.
+- Playback tests confirm that Per track applies the stored gain, Off returns to unity, and a
+  measurement that arrives while the song plays updates the current gain through `RefreshGain`.
+- ReplayGain tags are parsed from `REPLAYGAIN_*` fields in ID3, Vorbis, and MP4 forms; peaks are
+  accepted both as linear ratios and as decibels.
 
-## v1.1.5 interface and audio changes
+## Library watching
 
-- The Equalizer page exposes ten bands from 31 Hz to 16 kHz in 0.5 dB steps, a preamp,
-  presets, per-band double-click reset, and a global reset. Bypass keeps the curve.
-- Filter tests cover center-frequency gain and cut, off-band flatness, independent
-  channels, and live parameter updates. The native path uses RBJ peaking coefficients
-  with Q = 1.4 and 64-bit state; the browser preview mirrors the frequencies and Q.
-- Gain and preamp changes are smoothed per block, so a slider drag does not step the
-  output. The equalizer wraps the gapless mixer, which places it on every decoder path,
-  including both sinks during a crossfade.
-- Crossfade accepts 0–12 s in half-second steps, caps the overlap at half of either
-  track, pauses and resumes both streams together, and releases the old tail on seek,
-  skip, stop, output change, and natural advance. Selecting a non-zero crossfade
-  disables gapless preloading while it is active.
-- Output selection lists native devices, persists the choice with interface preferences,
-  ignores default-device changes for an explicit selection, and stops with a warning
-  instead of falling back when the chosen device disappears.
-- The shell drops the title-bar wordmark, the settings tagline, the Home heading
-  ornament, the sidebar status note, and the top-bar theme shortcut; Settings and the
-  audio controls remain reachable.
+- Helper checks cover collapsing nested folders and queueing the parent folder of a changed file.
+- Startup still performs one incremental scan; unchanged files are skipped without reparsing.
+- The watcher debounces bursts, rescans only the affected folders, retries a skipped scan while
+  another scan is running, re-reads the root list every few seconds, and stops on shutdown.
+- A real file-system event round trip in the packaged application was not exercised by an
+  automated test.
 
-## Session, library, and Home coverage
+## Interface changes
 
-- Every startup section, a named playlist, last-section restoration, invalid preferences,
-  and fallback to Home for a removed playlist.
-- Custom scan interval validation, persistence, startup-only mode, native scheduler
-  reconfiguration, and prompt shutdown.
-- Real decoder restoration into a silent output mixer: queue, original shuffle order,
-  position, volume, and playback mode. No decoder, audio device, or listening event
-  is created until explicit Play. The saved position survives reopening SQLite.
-- Removed and duplicate IDs are filtered; a missing track's position is not applied to
-  another song. Seeking while restored and paused does not open an audio source.
-- Queue changes preserve the current source, position, and pause state. Current-track
-  removal is protected, stale reorder requests fail, and row selection retains order.
-- Clicking the player title clears filters and reveals the song. A 10000-track virtual
-  list scrolls to and focuses track 8500 while rendering fewer than 40 rows.
-- Banner hiding, pin search, optional caption editing/clearing, unpinning, and SQLite
-  persistence. Deleting a track clears its pin without deleting its source file.
-- Real temporary-folder scans detect added/missing files, preserve favorites, skip
-  unchanged metadata, and retain records when a whole root is unavailable.
-- Browser restoration and queue behavior use mocked Audio/IDB. Newer shutdown snapshots
-  take precedence. These tests do not verify real browser codec implementations.
-- Initialization preserves restored volume and does not overwrite a newer background
-  scan result with an earlier initial library snapshot.
-- English/Russian controls and translation-key coverage.
-
-## Audio and metadata regression coverage
-
-- End-of-track and manual-navigation behavior for all four playback modes, empty and
-  single-track queues, boundaries, shuffle, and unreadable recordings.
-- Actual decoder/mixer behavior when another command arrives at the natural end of a song.
-  System Play/Pause are idempotent; Stop releases the source.
-- MP3, FLAC, WAV, Ogg Vorbis, Opus, AAC/ALAC M4A, and ADTS AAC fixtures; malformed files return errors.
-- Complete sample concatenation across WAV → WAV, MP3 VBR → CBR, M4A → AAC,
-  FLAC → Opus, and Ogg → WAV, without controller polling at the boundary.
-- MP3 CBR/VBR and M4A edit-list/iTunSMPB sample counts, 44.1/48 kHz normalization,
-  mono/stereo AAC, bounded-preroll AAC seeks, and missing encoder-timing behavior.
-- Gapless default, toggle persistence, queue replacement, repeat-one/list wrap,
-  pause, stop, and keeping the current playhead while changing upcoming tracks.
-- M4A/AAC title and artwork writes preserve decoded audio and encoder-trim instructions.
-- Opus mono/stereo/short recordings: sample counts, encoder delay, duration, output gain,
-  channel alignment, seeking forward/backward/to the end, and Opus inside `.ogg`.
-- Metadata round trips preserve audio packet fingerprints and create exact backups.
-  Sidecars preserve the original audio, support artwork, and survive subsequent edits.
-- Artwork caching/removal and rejection of files changed since the last scan.
-- Legacy SQLite migration, playlists, covers, favorites, listening statistics, and
-  cleanup of references when removing a library entry.
-
-## Windows media integration
-
-A real WinRT session attached to an isolated test window was found through GSMTC.
-The test verified title, artist, album, thumbnail, timeline, and all eight command
-types: Play, Pause, Stop, Next, Previous, Seek, Shuffle, and Repeat. Artwork remains
-available after removing its temporary source image and is cleared when requested.
-The test session shuts down cleanly and does not control other applications.
-
-Time conversion and Windows repeat-mode mapping are separately covered. Integration
-failures are reported without stopping local playback.
-
-## Interface regression coverage
-
-- Full app composition: library loading, search, navigation, and playlist creation.
-- Home highlights use real listening statistics and exclude unavailable songs.
-- Custom title-bar commands, resize-state changes, subscriptions, RU/EN labels, and IPC
-  failure handling are tested with mocked native APIs.
-- Themed sorting controls and playback-mode menus cover pointer and keyboard input,
-  focus changes, Escape, outside clicks, timers, and reduced motion.
-- Player sizing, artwork bounds, and responsive geometry are checked in happy-dom.
-  These are component/CSS checks, not screenshots of a native Windows window.
-- All six bundled WOFF2 subsets were previously decoded and checked for the required
-  Latin/Cyrillic glyphs; the release archive includes the font licenses.
-
-## Build and package
-
-The supplied Windows executable is an optimized v1.1.5 build produced using Rust 1.99,
-the MSVC toolchain, and Node.js 24.21. Frontend JavaScript/CSS filenames and all six offline
-font subsets are verified inside the executable. The portable ZIP includes its DLLs,
-demo files, documentation, and third-party license notices. libopus is linked statically.
-
-ZIP CRCs, release version, packaged executable equality, and SHA-256 hashes are checked
-when packaging. `build-info.json` and `SHA256SUMS.txt` in the release identify the assets.
+- Settings → Audio now exposes volume leveling (off, per track, per album), overload protection,
+  measurement progress, and a re-measure action. Tests cover persistence, native commands, the
+  progress line, and defaults (leveling off, protection on).
+- The scan-interval controls are removed; the settings dialog states at the bottom that music
+  folders are watched continuously. Startup expectations were updated accordingly.
+- The volume icon opens the output-device list on right-click, with keyboard support, persistence,
+  and a kept-but-unavailable saved device. Covered in the v1.1.5 player work and still passing.
+- Appearance offers **More themes** with eighteen fixed palettes: nine themes, each in a dark and
+  a light variant — Absolutely, Ayu, Catppuccin, Dracula, Everforest, GitHub, Gruvbox, Linear, and
+  Lobster. Tests cover normalization of every new appearance value, listing and selecting them,
+  persistence, hiding the fixed palettes, switching between variants, and returning to a standard
+  theme. Gruvbox, Ayu, Catppuccin, Dracula, Everforest, and GitHub use their official dark palettes;
+  their light counterparts are Gruvbox Light, Ayu Light, Catppuccin Latte, Dracula Alucard,
+  Everforest Light, and GitHub Light. Absolutely, Linear, and Lobster are adapted in both variants
+  from their reference looks. Contrast was checked by calculation, not by eye.
+- The volume slider changes 5% per mouse-wheel step (1% with Shift); a player test dispatches wheel
+  events and checks the native volume command.
+- Tooltips are drawn by the app: tests cover the delay, the themed popover text, suppressing and
+  restoring the native `title`, `data-tooltip` labels, switching between elements, and dismissal on
+  wheel or touch.
+- Settings is a tabbed dialog: tests cover the five-tab list, default selection, panel labelling,
+  per-tab content, click and arrow/Home key navigation, the pinned footer version, and the close
+  button. The production build was opened in the browser preview and measured: 680 px maximum width,
+  a fixed height across tabs and themes, internal panel scrolling with a stable scrollbar gutter,
+  all eighteen theme cards with six swatches each, and the panel transition. A native-window
+  screenshot was not captured.
+- Selects render their list through a portal with fixed positioning. Inside a dialog they always
+  open downward and cap their height to the free space, so the startup-page list stays reachable
+  instead of covering the tabs. A test covers the dialog placement and height cap.
+- Removing a music folder deletes its tracks and playlist references in SQLite, drops them from the
+  live queue, and keeps the files. A Rust test covers the database side and the Settings test covers
+  the confirmation flow. Sidebar scrollbar and spacing changes are CSS-only.
+- Added automated coverage for the new v1.1.6 additions: real-time spectrum FFT tap, sleep timer
+  (after-track stop and 10s deadline fade-out), M3U/M3U8 export & import with BOM/relative paths,
+  batch track removal in SQLite, library health (unavailable & duplicate ranking), custom equalizer
+  presets, and the sixth Settings tab (Mini player) with always-on-top / backdrop / visualizer
+  persistence.
 
 ## Verification limits
 
-Final native-window visual review is not confirmed for v1.1.5. The user's running player
-was left untouched during the build.
-Tray clicks, second-launch restoration, Explorer interaction, and physical drag-and-drop
-are not claimed as manually verified.
+Final native-window visual review is not confirmed for v1.1.6. The player is not launched by the
+build process.
 
-Physical audio unplug/replug and startup after Windows login were not exercised.
-The implementation uses endpoint notifications and stream errors, but actual driver,
-Bluetooth, and analog-jack behavior can vary.
+Loudness figures come from synthetic fixtures, not from a listening test on hardware. The album
+combination is an energy approximation and is not compared against a full album-mode ReplayGain
+scan. Equalizer boosts under the limiter were not auditioned on physical outputs.
 
-Switching between real outputs and the audible result of crossfade and equalizer settings
-were not checked on hardware. The mixer and filter tests run against synthetic audio;
-the browser preview exercises Web Audio, not the native path.
+Folder watching was verified through helper tests and code review; no automated test creates a
+real directory event. Network drives, very large copies, and watch limits on many roots were not
+measured.
 
-The Windows media API test confirms integration at the SMTC/GSMTC level, not the
-appearance of every third-party flyout. Real-device listening, multiple display DPI
-settings, measured 60 FPS, and a fixed memory/CPU budget are not claimed.
-
-Linux and macOS releases have not been built or tested.
+Physical audio unplug/replug, Windows media flyouts, tray interaction, Explorer drag-and-drop,
+and startup after login remain outside this verification, as in v1.1.5.

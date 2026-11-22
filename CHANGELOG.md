@@ -1,5 +1,57 @@
 # Changelog
 
+## v1.1.6 — 2026-11-14
+
+- Add overload protection: one stereo-linked brickwall limiter now sits on the summed output, so
+  the equalizer, preamp, and both sides of a crossfade share a single gain envelope. Peaks are
+  held at −1 dBFS; below the ceiling the stream stays transparent. It can be switched off.
+- Add volume leveling: ReplayGain 2.0 over EBU R128 with a −18 LUFS target, per-track and
+  per-album modes, true-peak capping, and smoothing for live mode changes. Embedded ReplayGain
+  tags are used instead of re-decoding, and files without a measurement play at unity.
+- Measure loudness in a background thread and store it in `library.sqlite`; imports are analyzed
+  automatically, the backlog follows when leveling is enabled, damaged files are not retried, and
+  Settings shows progress plus a re-measure action. See [volume leveling](docs/loudness-and-protection.md).
+- Watch music folders in real time instead of scheduling intervals: debounced rescans of just the
+  changed folder, added or removed roots picked up without a restart, and a note in Settings that
+  folders are checked continuously. The scan interval option is gone.
+- Persist leveling and protection settings in SQLite so the engine restores them before the first
+  Play, and refresh the playing track when its measurement arrives.
+- Make settings notes readable: the hint text under controls grows from 8 px to 12 px, and the
+  version labels read their value from `package.json` instead of a hard-coded string.
+- Add **More themes** under Appearance with eighteen fixed palettes: Absolutely, Ayu, Catppuccin,
+  Dracula, Everforest, GitHub, Gruvbox, Linear, and Lobster, each in a dark and a light variant,
+  with a swatch preview. The standard color palettes stay hidden while one of them is active,
+  because these themes carry their own colors. Light variants also switch the window chrome.
+- Change the volume with the mouse wheel over the player slider: 5% per step, 1% with Shift.
+- Replace OS tooltips with themed popovers that follow the active appearance, including the
+  window over the App root.
+- Rebuild Settings as a wider tabbed dialog: General, Appearance, Audio, Library, and Application
+  tabs with icons, a pinned header, an independently scrolling panel, a footer with the version,
+  arrow-key navigation, and a short panel transition. Appearance keeps the themed swatch strips for
+  all eighteen extra themes.
+- Forget a music folder from Settings → Library after a confirmation: its tracks leave the library
+  and the queue, the watcher stops following it, and the files stay on disk. Folder rows get a
+  remove button and the sidebar no longer carries its own “Add folder” button.
+- Tidy the sidebar: hide its scrollbar, compact the bottom settings row, and give the navigation
+  more room.
+- Add **Show in Explorer** (`explorer /select,...`) to the track context menu on Windows.
+- Add a **Sleep timer** on the player bar: stop after 15, 30, 45, or 60 minutes with a 10-second
+  fade-out, or stop after the current track finishes.
+- Support **drag-and-drop from Explorer** onto the main window: dropped folders are added and
+  scanned into the library, and dropped audio files are imported and played right away.
+- Add **custom equalizer presets**: save and delete user presets alongside the five built-in ones.
+- Add **M3U / M3U8 playlist import and export**: export any playlist to `.m3u8` and import
+  `.m3u`/`.m3u8` files into the library.
+- Add **Library health** in Settings → Library: inspect missing/unavailable entries and duplicate
+  tracks, and clean them from the library with confirmation without touching files on disk.
+- Add an **always-on-top Mini player** opened from the player bar beside Volume, with its own
+  Settings → Mini player tab (live preview, always-on-top, artwork glow, backdrop motion, and
+  real-time spectrum visualizer modes: Off, Bars, Wave, Bars & wave).
+- Extend coverage with limiter transparency and clipping tests, gain smoothing, reference-level
+  loudness measurements, album combination, tag parsing, database invalidation, live mode changes,
+  watcher helpers, spectrum FFT, M3U8 import/export, sleep timer fade/stop, library health, custom
+  equalizer presets, and the new settings controls.
+
 ## v1.1.5 — 2026-11-06
 
 - Add a ten-band equalizer from 31 Hz to 16 kHz, with ±12 dB on every band, a preamp, and Flat, Bass, Vocal, Rock, and Electronic presets. A new Equalizer page holds the controls.

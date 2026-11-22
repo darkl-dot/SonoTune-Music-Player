@@ -131,12 +131,15 @@
 .shade {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(15, 13, 20, 0.3),
-    rgba(15, 13, 20, 0.05) 30%,
-    rgba(15, 13, 20, 0.83)
-  );
+  /* A short top vignette keeps the card label readable over bright artwork. */
+  background:
+    linear-gradient(180deg, rgba(15, 13, 20, 0.46), rgba(15, 13, 20, 0) 34%),
+    linear-gradient(
+      180deg,
+      rgba(15, 13, 20, 0.24),
+      rgba(15, 13, 20, 0.03) 30%,
+      rgba(15, 13, 20, 0.83)
+    );
 }
 .cardLabel {
   position: absolute;

@@ -27,7 +27,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 0 9px 42px;
+  margin: 0 9px 34px;
   background: none;
   border: 0;
   padding: 0;
@@ -63,10 +63,13 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+}
+.sidebarBody::-webkit-scrollbar {
+  display: none;
 }
 .sidebarBottom {
-  padding-top: 18px;
+  padding-top: 8px;
 }
 .main {
   flex: 1;

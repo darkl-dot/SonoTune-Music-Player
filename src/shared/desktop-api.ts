@@ -17,4 +17,16 @@ export const desktopApi = {
   pendingExternal: () => invoke<string | null>('pending_external'),
   onExternal: (receive: (id: string) => void) =>
     listen<string>('external-opened', ({ payload }) => receive(payload)),
+  toggleMiniPlayer: (alwaysOnTop: boolean) =>
+    invoke<boolean>('toggle_mini_player', { alwaysOnTop }),
+  setMiniAlwaysOnTop: (value: boolean) => invoke<void>('set_mini_always_on_top', { value }),
+  showMainWindow: () => invoke<void>('show_main_window'),
+  onFileDragOver: (receive: (over: boolean) => void) =>
+    listen<boolean>('file-drag-over', ({ payload }) => receive(payload)),
+  onDropResult: (receive: (result: { kind: 'folders' | 'tracks'; count: number }) => void) =>
+    listen<{ kind: 'folders' | 'tracks'; count: number }>('drop-result', ({ payload }) =>
+      receive(payload),
+    ),
+  onMiniState: (receive: (open: boolean) => void) =>
+    listen<boolean>('mini-state', ({ payload }) => receive(payload)),
 };

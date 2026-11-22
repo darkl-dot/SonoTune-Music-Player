@@ -58,6 +58,31 @@
   font-size: 10px;
   color: var(--text-muted);
 }
+.compact {
+  width: min(280px, calc(100vw - 16px));
+  padding: 6px;
+  border-radius: 16px;
+}
+.compact .heading {
+  padding: 4px 8px 6px;
+  font-size: 11px;
+}
+.compact .option {
+  gap: 9px;
+  padding: 6px 8px;
+  border-radius: 11px;
+}
+.compact .option strong {
+  font-size: 11px;
+}
+.compact .option small {
+  margin-top: 1px;
+  font-size: 10px;
+  line-height: 1.25;
+}
+.compact .hint {
+  display: none;
+}
 .closing {
   animation: close 160ms ease both;
   pointer-events: none;

@@ -1,3 +1,5 @@
+import type { ExtraTheme } from './themes';
+
 export interface Track {
   id: string;
   path: string;
@@ -62,6 +64,13 @@ export interface Playback {
   volume: number;
   shuffle: boolean;
   repeat: RepeatMode;
+  sleepRemaining?: number | null;
+  sleepAfterTrack?: boolean;
+}
+export interface ImportPlaylistResult {
+  library: Library;
+  playlist: Playlist;
+  skipped: number;
 }
 export interface ScanProgress {
   scanned: number;
@@ -86,12 +95,19 @@ export type Section =
   | 'playlists'
   | `playlist:${string}`;
 export interface Settings {
-  appearance: 'light' | 'dark' | 'system';
+  appearance: 'light' | 'dark' | 'system' | ExtraTheme;
   palette: 'adaptive' | 'lilac' | 'sage' | 'peach';
   startupPage?: Section | 'last';
-  scanIntervalMinutes?: number | null;
   showHomeBanner?: boolean;
   gapless?: boolean;
   crossfade?: number;
   outputDevice?: string | null;
+  normalization?: NormalizationMode;
+  limiter?: boolean;
+  miniAlwaysOnTop?: boolean;
+  miniAmbient?: boolean;
+  miniAmbientMotion?: boolean;
+  miniVisualizer?: VisualizerMode;
 }
+export type NormalizationMode = 'off' | 'track' | 'album';
+export type VisualizerMode = 'off' | 'bars' | 'wave' | 'both';

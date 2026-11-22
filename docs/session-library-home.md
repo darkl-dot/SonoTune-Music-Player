@@ -23,12 +23,13 @@ existing queue order. Reject stale reorder requests rather than silently droppin
 
 ## Scanning
 
-Check added folders on every startup. Optionally schedule additional scans using a
-whole-number interval from 1 to 10080 minutes. The native worker sleeps between runs,
-works independently of WebView visibility, and prevents overlapping scans. Shutdown
-cancels scanning. Parse metadata for new/changed files, preserve concurrent favorite
-changes, and mark missing files unavailable. A disconnected root must not clear its
-library entries. Completion updates the visible library.
+Check added folders at startup, then watch them continuously with a recursive file-system
+watcher. Debounce bursts of changes, rescan only the affected folder, and collapse nested
+paths so a large copy is scanned once. Pick up added or removed roots without restarting
+the app. Work independently of WebView visibility and prevent overlapping scans; retry a
+skipped rescan instead of losing the change. Shutdown stops the watcher. Parse metadata for
+new/changed files, preserve concurrent favorite changes, and mark missing files unavailable.
+A disconnected root must not clear its library entries. Completion updates the visible library.
 
 The browser preview does not claim persistent access to previously selected folders.
 

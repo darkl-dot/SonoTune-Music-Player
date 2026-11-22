@@ -6,8 +6,11 @@ it. The preset picker offers Flat, Bass, Vocal, Rock, Electronic, and Custom.
 
 The preamp ranges from -24 to 0 dB. Boosting bands can overload the output; lower
 the preamp when boosting. Factory presets include a conservative preamp setting.
-There is no automatic limiter. Reset sets every band and the preamp to zero;
-the switch bypasses processing while retaining your adjustments.
+A stereo-linked brickwall limiter sits after the equalizer on the summed output and
+holds peaks at -1 dBFS, so boosts cannot clip the device. It adds 5 ms of look-ahead
+delay while enabled and can be switched off in Settings → Audio, where volume leveling
+(ReplayGain over EBU R128) is also configured. Reset sets every band and the preamp to
+zero; the switch bypasses processing while retaining your adjustments.
 
 Settings persist in the interface's local storage and apply to the playing track
 without restarting it.

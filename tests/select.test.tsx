@@ -96,6 +96,35 @@ it('uses theme colors and opens above when the player leaves insufficient space 
   expect(document.querySelector('select')).toBeNull();
 });
 
+it('opens downward inside a dialog and scrolls within the remaining space', () => {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    const list = this.classList.contains('select-popover');
+    return {
+      top: list ? 0 : 500,
+      bottom: list ? 0 : 540,
+      height: list ? 300 : 40,
+      width: list ? 225 : 300,
+      left: list ? 0 : 40,
+      right: list ? 0 : 340,
+      x: list ? 0 : 40,
+      y: list ? 0 : 500,
+      toJSON() {},
+    };
+  });
+  render(
+    <div role="dialog">
+      <Example />
+    </div>,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Sort tracks' }));
+  const list = screen.getByRole('listbox');
+  expect(list.classList.contains('opens-above')).toBe(false);
+  expect(Number.parseFloat(list.style.top)).toBeCloseTo(546);
+  expect(Number.parseFloat(list.style.maxHeight)).toBeLessThanOrEqual(220);
+});
+
 it('switches font families with the interface language and retains a Cyrillic fallback', () => {
   const style = document.createElement('style');
   style.dataset.selectTest = '';

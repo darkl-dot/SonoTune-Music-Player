@@ -80,6 +80,81 @@ fn import(state: &AppState, paths: &[PathBuf]) -> Result<Vec<String>, String> {
     let _files = state.file_work.lock().map_err(|e| e.to_string())?;
     import_into(&state.db, &state.data_dir, paths)
 }
+pub fn handle_drop(app: &AppHandle, raw_paths: Vec<PathBuf>) {
+    if raw_paths.is_empty() {
+        return;
+    }
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<Arc<AppState>>();
+        if state.closing.load(Ordering::Acquire) {
+            return;
+        }
+        let mut dirs = Vec::new();
+        let mut files = Vec::new();
+        let mut seen = HashSet::new();
+        for raw in raw_paths.into_iter().take(512) {
+            let Ok(path) = dunce::canonicalize(&raw) else {
+                continue;
+            };
+            if !seen.insert(path.to_string_lossy().to_lowercase()) {
+                continue;
+            }
+            if path.is_dir() {
+                dirs.push(path);
+            } else if path.is_file() && library::supported(&path) {
+                files.push(path);
+            }
+        }
+        if !dirs.is_empty() {
+            let added = dirs.len();
+            {
+                let Ok(_files) = state.file_work.lock() else {
+                    return;
+                };
+                for dir in &dirs {
+                    if let Err(e) = state.db.add_folder(&dir.to_string_lossy()) {
+                        crate::desktop::report(&app, e);
+                    }
+                }
+            }
+            match crate::commands::scan_paths(&state, &dirs, None) {
+                Ok(library) => {
+                    let _ = app.emit("library-updated", &library);
+                    let _ = app.emit(
+                        "drop-result",
+                        serde_json::json!({ "kind": "folders", "count": added }),
+                    );
+                }
+                Err(e) => crate::desktop::report(&app, e),
+            }
+        }
+        if !files.is_empty() {
+            match import(&state, &files) {
+                Ok(ids) if !ids.is_empty() => {
+                    let count = ids.len();
+                    if let Ok(library) = state.db.load() {
+                        let _ = app.emit("library-updated", library);
+                    }
+                    if let Err(e) = state.engine.command(PlayerCommand::Play {
+                        id: ids[0].clone(),
+                        queue: ids.clone(),
+                    }) {
+                        crate::desktop::report(&app, e);
+                        return;
+                    }
+                    let _ = app.emit("external-opened", &ids[0]);
+                    let _ = app.emit(
+                        "drop-result",
+                        serde_json::json!({ "kind": "tracks", "count": count }),
+                    );
+                }
+                Ok(_) => {}
+                Err(e) => crate::desktop::report(&app, e),
+            }
+        }
+    });
+}
 fn import_into(
     db: &crate::storage::Database,
     data_dir: &Path,

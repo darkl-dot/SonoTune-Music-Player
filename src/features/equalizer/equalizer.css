@@ -46,6 +46,30 @@
 .eq-tools {
   gap: 10px;
 }
+.eq-preset-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -14px 0 22px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: var(--hover);
+  flex-wrap: wrap;
+}
+.eq-preset-form input {
+  flex: 1;
+  min-width: 160px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 11px;
+  border: 1px solid var(--outline);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+}
+.eq-preset-form input:focus {
+  border-color: var(--primary);
+}
 .eq-scroll {
   overflow-x: auto;
   padding: 8px 2px 20px;

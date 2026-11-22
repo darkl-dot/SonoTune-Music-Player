@@ -10,25 +10,29 @@ use std::{
 pub struct Prepared {
     pub track: Track,
     pub duration: f64,
+    pub gain: crate::gain::Shared,
     source: AudioSource,
 }
 impl Prepared {
-    pub fn new(track: Track, source: AudioSource) -> Self {
+    pub fn new(track: Track, source: AudioSource, gain_db: f64) -> Self {
         let duration = source
             .total_duration()
             .map(|d| d.as_secs_f64())
             .unwrap_or(track.duration);
+        let gain = std::sync::Arc::new(std::sync::Mutex::new(gain_db));
+        let leveled = crate::gain::Gain::new(source, gain.clone());
         Self {
             track,
             duration,
-            source: crate::audio::normalized(source),
+            gain,
+            source: crate::audio::normalized(Box::new(leveled)),
         }
     }
 }
 #[derive(Default)]
 struct State {
     pending: Option<Prepared>,
-    started: Option<(Track, f64)>,
+    started: Option<(Track, f64, crate::gain::Shared)>,
     claimed: bool,
 }
 #[derive(Clone, Default)]
@@ -52,7 +56,16 @@ impl NextSlot {
             .as_ref()
             .map(|p| p.track.id.clone())
     }
-    pub fn poll(&self) -> (bool, Option<(Track, f64)>) {
+    /// Adjust the level of the prepared track without dropping its decoder.
+    pub fn set_gain(&self, gain_db: f64) {
+        let state = self.0.lock().unwrap();
+        if let Some(pending) = &state.pending {
+            if let Ok(mut target) = pending.gain.lock() {
+                *target = gain_db;
+            }
+        }
+    }
+    pub fn poll(&self) -> (bool, Option<(Track, f64, crate::gain::Shared)>) {
         // Claim and notification must be observed together. Two separate locks
         // could lose a transition if the callback starts between those reads.
         let mut state = self.0.lock().unwrap();
@@ -108,7 +121,7 @@ impl Iterator for NextSource {
             let mut state = self.slot.0.lock().unwrap();
             state.claimed = true;
             if let Some(next) = state.pending.take() {
-                state.started = Some((next.track, next.duration));
+                state.started = Some((next.track, next.duration, next.gain));
                 self.active = Some(next.source);
             }
             drop(state);

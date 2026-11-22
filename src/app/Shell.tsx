@@ -8,7 +8,6 @@ import {
   Heart,
   House,
   ListMusic,
-  LoaderCircle,
   Music2,
   Play,
   Plus,
@@ -52,7 +51,6 @@ export function Sidebar({
   useLanguage();
   const library = useStore((s) => s.library);
   const section = useStore((s) => s.section);
-  const busy = useStore((s) => s.busy);
   return (
     <aside className={styles.sidebar}>
       <button
@@ -155,14 +153,6 @@ export function Sidebar({
       </div>
       <div className={styles.sidebarBottom}>
         <button
-          className="button import-button"
-          disabled={busy}
-          onClick={() => void useStore.getState().importFolder()}
-        >
-          {busy ? <LoaderCircle className="spin" size={19} /> : <FolderPlus size={19} />}
-          <span>{t('Добавить папку')}</span>
-        </button>
-        <button
           className="settings-link"
           aria-label={t('Настройки')}
           title={t('Настройки')}
@@ -170,7 +160,7 @@ export function Sidebar({
         >
           <Settings2 size={17} />
           <span>{t('Настройки')}</span>
-          <span className="version">v1.1.5</span>
+          <span className="version">v{__APP_VERSION__}</span>
         </button>
       </div>
     </aside>

@@ -2,13 +2,16 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-window",
   "description": "SonoTune local UI. All file operations use validated track IDs in Rust.",
-  "windows": ["main"],
+  "windows": ["main", "mini"],
   "permissions": [
     "core:default",
     "core:window:allow-set-theme",
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",
     "core:window:allow-close",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-always-on-top",
     "core:window:allow-start-dragging"
   ]
 }

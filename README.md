@@ -40,11 +40,14 @@ folder, and press Play. Windows x64 and Microsoft Edge WebView2 Runtime are requ
 
 - **Your local library:** MP3, FLAC, WAV, Ogg Vorbis, Opus, M4A, and AAC; search by title, artist, or album.
 - **Gapless playback:** on by default, with a Settings switch. [Format details](docs/gapless-and-formats.md).
-- **Shape the sound:** a ten-band equalizer with presets and a preamp, optional crossfade, and output-device selection.
-- **A look you can change:** artwork colors, fixed palettes, light/dark appearance, and gentle motion.
-- **Your way to listen:** playlists with custom covers, favorites, pinned tracks, and an editable queue.
+- **Shape the sound:** a ten-band equalizer with built-in and custom presets, preamp, optional crossfade, sleep timer, and output-device selection.
+- **No clipping, even levels:** a limiter holds peaks at −1 dBFS, and ReplayGain 2.0 leveling matches tracks or albums to −18 LUFS. [Details](docs/loudness-and-protection.md).
+- **A look you can change:** artwork colors, fixed palettes, light/dark appearance, and eighteen extra themes — Absolutely, Ayu, Catppuccin, Dracula, Everforest, GitHub, Gruvbox, Linear, and Lobster, each in dark and light — plus gentle motion.
+- **Always-on-top mini player:** compact floating window with ambient artwork backdrop, hover playback & repeat controls, and a live FFT visualizer (Bars, Wave, Bars & wave).
+- **Your way to listen:** playlists with custom covers and M3U/M3U8 import & export, favorites, pinned tracks, and an editable queue.
 - **Pick up later:** saved playback position and queue, restored on pause; choose your startup page.
-- **Windows integration:** system media controls, a tray menu, optional startup, and “Open with” support.
+- **Folders keep themselves current:** watched in real time, with drag-and-drop from Explorer, missing-file & duplicate cleanup, and already-seen files left unparsed.
+- **Windows integration:** system media controls, a tray menu, optional startup, “Open with” support, and “Show in Explorer” in track menus.
 - **Local tools:** metadata editing with backups, folder rescanning, offline English/Russian fonts.
 
 No account or cloud library required. Windows is the current release platform.

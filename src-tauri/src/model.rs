@@ -142,6 +142,8 @@ pub struct Playback {
     pub volume: f32,
     pub shuffle: bool,
     pub repeat: Repeat,
+    pub sleep_remaining: Option<u64>,
+    pub sleep_after_track: bool,
 }
 impl Default for Playback {
     fn default() -> Self {
@@ -154,6 +156,8 @@ impl Default for Playback {
             volume: 0.7,
             shuffle: false,
             repeat: Repeat::None,
+            sleep_remaining: None,
+            sleep_after_track: false,
         }
     }
 }
@@ -210,6 +214,20 @@ pub enum PlayerCommand {
     Equalizer {
         value: crate::equalizer::Settings,
     },
+    Forget {
+        ids: Vec<String>,
+    },
+    Normalization {
+        mode: crate::loudness::Mode,
+    },
+    Limiter {
+        enabled: bool,
+    },
+    SleepTimer {
+        minutes: Option<u32>,
+        after_track: bool,
+    },
+    RefreshGain,
 }
 
 pub fn now() -> u64 {

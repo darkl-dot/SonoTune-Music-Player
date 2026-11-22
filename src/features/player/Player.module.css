@@ -7,7 +7,7 @@
   padding: 6px 24px;
   display: grid;
   grid-template-areas: 'track transport extras';
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 1.45fr) minmax(180px, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 1.45fr) minmax(248px, 1fr);
   grid-template-rows: minmax(0, 1fr);
   gap: 24px;
   align-items: center;
@@ -230,12 +230,15 @@
 }
 @media (max-width: 1100px) {
   .player {
-    gap: 16px;
-    padding-inline: 20px;
-    grid-template-columns: minmax(0, 1fr) minmax(284px, 1.4fr) 170px;
+    gap: 14px;
+    padding-inline: 18px;
+    grid-template-columns: minmax(0, 1fr) minmax(276px, 1.35fr) 232px;
+  }
+  .extras {
+    gap: 4px;
   }
   .volume {
-    width: 65px;
+    width: 58px;
   }
   .trackActions > button:first-child {
     display: none;

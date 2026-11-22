@@ -18,12 +18,13 @@ Your library and preferences are stored separately from the application folder.
 | Your music                                         | Your listening space                             |
 | -------------------------------------------------- | ------------------------------------------------ |
 | MP3, FLAC, WAV, Ogg Vorbis, Opus, M4A, and AAC     | Adaptive artwork colors and three fixed palettes |
-| Recursive folder import and incremental rescanning | Light, dark, and system appearance               |
+| Recursive folder import and incremental rescanning | Light, dark, system, and 18 extra themes         |
 | Search by title, artist, or album                  | A customizable Home page with optional banner    |
 | Artists, albums, genres, favorites, and playlists  | Recent, most-played, and random song cards       |
 | Custom playlist covers                             | Pinned tracks with optional personal captions    |
 | Metadata and artwork editing                       | Bundled fonts and reduced-motion support         |
 |                                                    | Ten-band equalizer, crossfade, output selection  |
+|                                                    | Volume leveling and overload protection          |
 
 ### Pick up where you left off
 
@@ -58,8 +59,9 @@ moving any band afterwards switches the label to Custom. The switch at the top b
 processing without discarding your curve.
 
 **Preamp** lowers the level from 0 to −24 dB. Boosting bands can push the output into
-clipping and SonoTune has no limiter, so lower the preamp when you raise several bands.
-Changes are smoothed and apply to the current song immediately.
+clipping; overload protection is on by default and holds peaks at −1 dBFS, but lowering
+the preamp keeps more dynamic range intact. Changes are smoothed and apply to the current
+song immediately.
 
 Settings → **Audio** also has crossfade, from 0 to 12 seconds. At 0 the player keeps
 its gapless behavior; with a longer overlap the next track starts early and the two
@@ -67,6 +69,12 @@ fade across each other, shortened for short tracks. Seeking, skipping, stopping,
 changing the output ends an overlap cleanly. You can also choose an output device
 there; an explicit choice does not follow changes to the Windows default, and if the
 device disappears playback pauses with a warning rather than switching silently.
+
+The same section holds **Volume leveling** (Off, Per track, or Per album) and
+**Overload protection**. Leveling matches songs to −18 LUFS using ReplayGain 2.0 over
+EBU R128; files that already carry ReplayGain tags are used as they are. Protection is
+a limiter that keeps peaks at −1 dBFS after the equalizer, so boosts cannot clip the
+output. See [volume leveling and protection](loudness-and-protection.md).
 
 ### A queue you can shape
 
@@ -88,10 +96,11 @@ Manual Next and Previous remain available in every mode.
 
 ### Keep your library up to date
 
-Added folders are checked at every startup. Optionally, set a background scan interval
-in minutes in Settings. Scans read metadata for new or changed files rather than reparsing
-every unchanged recording. Missing files remain visible as unavailable, preserving
-playlist references. An unavailable drive does not empty your library.
+Added folders are checked at startup and then watched all the time. New or changed audio
+files appear in the library on their own; scans are incremental, read metadata only for new
+or changed files, and missing files remain visible as unavailable. An unavailable drive does
+not empty your library. The settings dialog states this at the bottom; there is no scan
+interval to configure.
 
 ### At home in Windows
 
@@ -104,6 +113,16 @@ flyouts can control the same player engine.
 Edit title, artists, album, year, genres, and artwork. Direct file writes create a backup
 and verify the audio data before replacing the original. A JSON sidecar is available as
 an alternative. Ogg/Opus metadata uses its container's tags rather than MP3 ID3 tags.
+
+## Settings
+
+Settings is split into five tabs: **General** (language, startup page, Home banner), **Appearance**
+(light, dark, system, the extra themes, and color palettes), **Audio** (gapless, crossfade, volume
+leveling, overload protection, and the output device), **Library** (music folders, rescanning, and
+removing a folder from the library), and **Application** (tray, Windows startup, and technical
+tools). Removing a folder only forgets it in SonoTune: its tracks leave the library, the folder
+stops being watched, and the files on disk are untouched. Changes are saved immediately; the
+interface version stays visible in the footer.
 
 ## Keyboard shortcuts
 
@@ -119,6 +138,9 @@ an alternative. Ogg/Opus metadata uses its container's tags rather than MP3 ID3 
 
 Playback shortcuts apply when focus is outside inputs, buttons, and dialogs.
 Previous restarts the current song if more than three seconds have elapsed.
+
+The volume slider also responds to the mouse wheel: each step is 5%, or 1% with Shift held.
+Tooltips are drawn by the player itself in the current theme instead of the operating system.
 
 ## Local data
 
@@ -160,9 +182,10 @@ Crossfade supersedes that preparation: while it is on, the next track is opened 
 transition instead of ahead of time.
 
 M4A supports AAC-LC and ALAC; raw AAC uses ADTS. AAC and Opus decoding support mono and stereo.
-HE-AAC, DRM-protected files, multichannel AAC/Opus, and real-time filesystem watching
-are not implemented. Renaming or moving a file
-outside the app imports it as a new library entry at the next scan.
+HE-AAC, DRM-protected files, and multichannel AAC/Opus are not implemented. Folder changes are
+detected while the desktop app runs; the browser preview still requires choosing the folder
+again. Renaming or moving a file outside the app imports it as a new library entry at the next
+scan.
 
 Lightweight operation and smooth interaction are design goals, not a claim of measured
 60 FPS or a fixed memory footprint. Lists are virtualized, but library metadata is

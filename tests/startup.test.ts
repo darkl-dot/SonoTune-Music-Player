@@ -6,7 +6,8 @@ const service = vi.hoisted(() => ({
   subscribe: vi.fn(),
   load: vi.fn(),
   volume: vi.fn(async () => {}),
-  configureScan: vi.fn(async () => {}),
+  configureNormalization: vi.fn(async () => {}),
+  configureLimiter: vi.fn(async () => {}),
   configureGapless: vi.fn(async () => {}),
 }));
 vi.mock('../src/shared/api', () => ({
@@ -29,10 +30,7 @@ beforeEach(() => {
   localStorage.clear();
 });
 it('waits for the restored playback and preserves a newer background library update over an older initial load', async () => {
-  localStorage.setItem(
-    'sonotune-settings',
-    JSON.stringify({ startupPage: 'playlist:mix', scanIntervalMinutes: 17 }),
-  );
+  localStorage.setItem('sonotune-settings', JSON.stringify({ startupPage: 'playlist:mix' }));
   localStorage.setItem('sonotune-volume', '0.9');
   const restored: Playback = {
     trackId: 'song',
@@ -74,7 +72,8 @@ it('waits for the restored playback and preserves a newer background library upd
     playback: restored,
   });
   expect(service.volume).not.toHaveBeenCalled();
-  expect(service.configureScan).toHaveBeenCalledWith(17);
+  expect(service.configureNormalization).toHaveBeenCalledWith('off');
+  expect(service.configureLimiter).toHaveBeenCalledWith(true);
 });
 it('uses the saved last page and volume for a first session with no restored track', async () => {
   localStorage.setItem('sonotune-settings', JSON.stringify({ startupPage: 'last' }));
@@ -86,6 +85,6 @@ it('uses the saved last page and volume for a first session with no restored tra
   await initialize();
   expect(useStore.getState().section).toBe('favorites');
   expect(service.volume).toHaveBeenCalledWith(0.6);
-  expect(service.configureScan).toHaveBeenCalledWith(null);
+  expect(service.configureNormalization).toHaveBeenCalledWith('off');
   expect(service.configureGapless).toHaveBeenCalledWith(true);
 });

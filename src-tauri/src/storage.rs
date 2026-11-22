@@ -8,6 +8,37 @@ mod tests {
     use super::*;
     use base64::Engine;
     #[test]
+    fn removing_a_folder_drops_its_tracks_and_keeps_the_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let music = directory.path().join("music");
+        std::fs::create_dir(&music).unwrap();
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/tone.flac");
+        let db = Database::open(&directory.path().join("folders.sqlite")).unwrap();
+        let mut ids = Vec::new();
+        for name in ["a.flac", "b.flac"] {
+            let path = music.join(name);
+            std::fs::copy(&source, &path).unwrap();
+            let track = crate::metadata::read_track(&path, None, directory.path(), false).unwrap();
+            ids.push(track.id.clone());
+            db.upsert_batch(std::slice::from_ref(&track)).unwrap();
+        }
+        db.add_folder(&music.to_string_lossy()).unwrap();
+        db.save_playlist(&Playlist {
+            id: "p".into(),
+            name: "Mixed".into(),
+            track_ids: ids.clone(),
+            created_at: 1,
+            artwork: None,
+        })
+        .unwrap();
+        let (library, removed) = db.remove_folder(&music.to_string_lossy()).unwrap();
+        assert_eq!(removed.len(), 2);
+        assert!(library.tracks.is_empty());
+        assert!(library.folders.is_empty());
+        assert!(library.playlists[0].track_ids.is_empty());
+        assert!(music.join("a.flac").exists() && music.join("b.flac").exists());
+    }
+    #[test]
     fn pins_and_scheduler_settings_survive_reopen_and_track_removal() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("pins.sqlite");
@@ -127,6 +158,80 @@ mod tests {
         assert!(db.load().unwrap().playlists[0].track_ids.is_empty());
         assert!(source.exists());
     }
+    #[test]
+    fn pending_loudness_skips_older_backlog_when_filtering_by_session_start_and_invalidates_on_modification(
+    ) {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("loudness-queue.sqlite");
+        let db = Database::open(&path).unwrap();
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/tone.flac");
+        let base = crate::metadata::read_track(&source, None, directory.path(), false).unwrap();
+
+        let mut old_tracks = Vec::new();
+        for i in 0..10 {
+            let mut track = base.clone();
+            track.id = format!("old-{i}");
+            track.path = format!("C:\\music\\old-{i}.flac");
+            track.added_at = 10;
+            track.modified = 100;
+            old_tracks.push(track);
+        }
+        db.upsert_batch(&old_tracks).unwrap();
+
+        let mut fresh = base.clone();
+        fresh.id = "fresh".into();
+        fresh.path = "C:\\music\\fresh.flac".into();
+        fresh.added_at = 100;
+        fresh.modified = 200;
+        db.upsert_batch(std::slice::from_ref(&fresh)).unwrap();
+
+        let session_only = db.pending_loudness(8, 100).unwrap();
+        assert_eq!(session_only.len(), 1);
+        assert_eq!(session_only[0].id, "fresh");
+
+        let full_backlog = db.pending_loudness(8, 0).unwrap();
+        assert_eq!(full_backlog.len(), 8);
+        assert_eq!(full_backlog[0].id, "old-0");
+
+        let row = crate::loudness::Row::measured(&fresh, -18.0, -1.0);
+        db.save_loudness(&fresh.id, &row).unwrap();
+        assert!(db.pending_loudness(8, 100).unwrap().is_empty());
+
+        fresh.modified = 201;
+        db.upsert_batch(std::slice::from_ref(&fresh)).unwrap();
+        assert!(db.loudness(&fresh.id).unwrap().is_none());
+        let re_queued = db.pending_loudness(8, 100).unwrap();
+        assert_eq!(re_queued.len(), 1);
+        assert_eq!(re_queued[0].id, "fresh");
+    }
+    #[test]
+    fn removing_tracks_in_batch_cleans_playlists_and_keeps_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("batch-remove.sqlite");
+        let db = Database::open(&path).unwrap();
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/tone.flac");
+        let a = directory.path().join("a.flac");
+        let b = directory.path().join("b.flac");
+        std::fs::copy(&source, &a).unwrap();
+        std::fs::copy(&source, &b).unwrap();
+        let track_a = crate::metadata::read_track(&a, None, directory.path(), false).unwrap();
+        let track_b = crate::metadata::read_track(&b, None, directory.path(), false).unwrap();
+        db.upsert_batch(&[track_a.clone(), track_b.clone()])
+            .unwrap();
+        db.save_playlist(&Playlist {
+            id: "pl".into(),
+            name: "Mix".into(),
+            track_ids: vec![track_a.id.clone(), track_b.id.clone()],
+            created_at: 1,
+            artwork: None,
+        })
+        .unwrap();
+        let updated = db.remove_tracks(std::slice::from_ref(&track_a.id)).unwrap();
+        assert_eq!(updated.tracks.len(), 1);
+        assert_eq!(updated.tracks[0].id, track_b.id);
+        assert_eq!(updated.playlists[0].track_ids, vec![track_b.id]);
+        assert!(a.exists());
+    }
 }
 impl Database {
     pub fn open(path: &Path) -> Result<Self, String> {
@@ -145,7 +250,19 @@ impl Database {
                 track_id TEXT PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE,
                 label TEXT NOT NULL DEFAULT ''
             );
-            PRAGMA user_version=3;").map_err(|e| e.to_string())?;
+            CREATE TABLE IF NOT EXISTS loudness (
+                track_id TEXT PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE,
+                lufs REAL NOT NULL,
+                peak_db REAL NOT NULL,
+                album_gain_db REAL,
+                album_key TEXT NOT NULL DEFAULT '',
+                duration REAL NOT NULL DEFAULT 0,
+                energy REAL NOT NULL DEFAULT 0,
+                source TEXT NOT NULL DEFAULT 'scan',
+                modified INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE INDEX IF NOT EXISTS loudness_album ON loudness(album_key);
+            PRAGMA user_version=4;").map_err(|e| e.to_string())?;
         Ok(Self(Mutex::new(connection)))
     }
     pub fn load(&self) -> Result<Library, String> {
@@ -275,6 +392,7 @@ impl Database {
         let transaction = db.transaction().map_err(|e| e.to_string())?;
         for track in tracks {
             let mut track = track.clone();
+            let mut changed = false;
             if let Ok(value) =
                 transaction.query_row("SELECT data FROM tracks WHERE id=?1", [&track.id], |row| {
                     row.get::<_, String>(0)
@@ -283,11 +401,136 @@ impl Database {
                 if let Ok(existing) = serde_json::from_str::<Track>(&value) {
                     track.favorite = existing.favorite;
                     track.added_at = existing.added_at;
+                    changed = existing.modified != track.modified;
                 }
+            }
+            if changed {
+                // A rewritten or replaced file invalidates its loudness row.
+                transaction
+                    .execute("DELETE FROM loudness WHERE track_id=?1", [&track.id])
+                    .map_err(|e| e.to_string())?;
             }
             transaction.execute("INSERT INTO tracks(id,path,data) VALUES (?1,?2,?3) ON CONFLICT(id) DO UPDATE SET path=excluded.path,data=excluded.data", params![track.id, track.path, serde_json::to_string(&track).map_err(|e| e.to_string())?]).map_err(|e| e.to_string())?;
         }
         transaction.commit().map_err(|e| e.to_string())
+    }
+    pub fn save_loudness(&self, id: &str, row: &crate::loudness::Row) -> Result<(), String> {
+        self.0
+            .lock()
+            .map_err(|e| e.to_string())?
+            .execute(
+                "INSERT INTO loudness(track_id,lufs,peak_db,album_gain_db,album_key,duration,energy,source,modified)
+                 VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)
+                 ON CONFLICT(track_id) DO UPDATE SET lufs=excluded.lufs,peak_db=excluded.peak_db,
+                 album_gain_db=excluded.album_gain_db,album_key=excluded.album_key,
+                 duration=excluded.duration,energy=excluded.energy,source=excluded.source,
+                 modified=excluded.modified",
+                params![
+                    id,
+                    row.lufs,
+                    row.peak_db,
+                    row.album_gain_db,
+                    row.album_key,
+                    row.duration,
+                    row.energy,
+                    row.source,
+                    row.modified
+                ],
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    fn loudness_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<crate::loudness::Row> {
+        Ok(crate::loudness::Row {
+            lufs: row.get(0)?,
+            peak_db: row.get(1)?,
+            album_gain_db: row.get(2)?,
+            album_key: row.get(3)?,
+            duration: row.get(4)?,
+            energy: row.get(5)?,
+            source: row.get(6)?,
+            modified: row.get(7)?,
+        })
+    }
+    pub fn loudness(&self, id: &str) -> Result<Option<crate::loudness::Row>, String> {
+        use rusqlite::OptionalExtension;
+        self.0
+            .lock()
+            .map_err(|e| e.to_string())?
+            .query_row(
+                "SELECT lufs,peak_db,album_gain_db,album_key,duration,energy,source,modified
+                 FROM loudness WHERE track_id=?1",
+                [id],
+                Self::loudness_row,
+            )
+            .optional()
+            .map_err(|e| e.to_string())
+    }
+    pub fn album_loudness(&self, key: &str) -> Result<Vec<crate::loudness::Row>, String> {
+        let db = self.0.lock().map_err(|e| e.to_string())?;
+        let mut statement = db
+            .prepare(
+                "SELECT lufs,peak_db,album_gain_db,album_key,duration,energy,source,modified
+                 FROM loudness WHERE album_key=?1",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = statement
+            .query_map([key], Self::loudness_row)
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        Ok(rows)
+    }
+    pub fn pending_loudness(&self, limit: usize, since: u64) -> Result<Vec<Track>, String> {
+        let db = self.0.lock().map_err(|e| e.to_string())?;
+        let mut statement = db
+            .prepare(
+                "SELECT t.data FROM tracks t LEFT JOIN loudness l ON l.track_id=t.id
+                 WHERE l.track_id IS NULL
+                   AND json_extract(t.data, '$.available') = 1
+                   AND json_extract(t.data, '$.addedAt') >= ?1
+                 ORDER BY t.rowid LIMIT ?2",
+            )
+            .map_err(|e| e.to_string())?;
+        let tracks = statement
+            .query_map(params![since, limit as i64], |row| row.get::<_, String>(0))
+            .map_err(|e| e.to_string())?
+            .map(|value| {
+                let value = value.map_err(|e| e.to_string())?;
+                serde_json::from_str::<Track>(&value).map_err(|e| e.to_string())
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(tracks)
+    }
+    pub fn loudness_stats(&self) -> Result<(i64, i64), String> {
+        let db = self.0.lock().map_err(|e| e.to_string())?;
+        let measured = db
+            .query_row("SELECT COUNT(*) FROM loudness", [], |row| row.get(0))
+            .map_err(|e| e.to_string())?;
+        let total = db
+            .query_row("SELECT COUNT(*) FROM tracks", [], |row| row.get(0))
+            .map_err(|e| e.to_string())?;
+        Ok((measured, total))
+    }
+    pub fn clear_loudness(&self) -> Result<(), String> {
+        self.0
+            .lock()
+            .map_err(|e| e.to_string())?
+            .execute("DELETE FROM loudness", [])
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    pub fn folders(&self) -> Result<Vec<String>, String> {
+        let db = self.0.lock().map_err(|e| e.to_string())?;
+        let mut statement = db
+            .prepare("SELECT path FROM folders ORDER BY rowid")
+            .map_err(|e| e.to_string())?;
+        let folders = statement
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        Ok(folders)
     }
     pub fn save_playlist(&self, playlist: &Playlist) -> Result<(), String> {
         if playlist.name.trim().is_empty() || playlist.name.len() > 400 {
@@ -376,6 +619,74 @@ impl Database {
                 .map_err(|e| e.to_string())?;
         }
         transaction.commit().map_err(|e| e.to_string())
+    }
+    pub fn remove_folder(&self, path: &str) -> Result<(Library, Vec<String>), String> {
+        let library = self.load()?;
+        let root = Path::new(path);
+        let removed: Vec<String> = library
+            .tracks
+            .iter()
+            .filter(|track| Path::new(&track.path).starts_with(root))
+            .map(|track| track.id.clone())
+            .collect();
+        let mut db = self.0.lock().map_err(|e| e.to_string())?;
+        let transaction = db.transaction().map_err(|e| e.to_string())?;
+        transaction
+            .execute("DELETE FROM folders WHERE path=?1", [path])
+            .map_err(|e| e.to_string())?;
+        for id in &removed {
+            transaction
+                .execute("DELETE FROM tracks WHERE id=?1", [id])
+                .map_err(|e| e.to_string())?;
+        }
+        let removed_ids: std::collections::HashSet<&String> = removed.iter().collect();
+        for mut playlist in library.playlists {
+            playlist.track_ids.retain(|id| !removed_ids.contains(id));
+            transaction
+                .execute(
+                    "UPDATE playlists SET data=?1 WHERE id=?2",
+                    params![
+                        serde_json::to_string(&playlist).map_err(|e| e.to_string())?,
+                        playlist.id
+                    ],
+                )
+                .map_err(|e| e.to_string())?;
+        }
+        transaction.commit().map_err(|e| e.to_string())?;
+        drop(db);
+        Ok((self.load()?, removed))
+    }
+    pub fn remove_tracks(&self, ids: &[String]) -> Result<Library, String> {
+        if ids.is_empty() {
+            return self.load();
+        }
+        let library = self.load()?;
+        let removed_ids: std::collections::HashSet<&String> = ids.iter().collect();
+        let mut db = self.0.lock().map_err(|e| e.to_string())?;
+        let transaction = db.transaction().map_err(|e| e.to_string())?;
+        for id in ids {
+            transaction
+                .execute("DELETE FROM tracks WHERE id=?1", [id])
+                .map_err(|e| e.to_string())?;
+        }
+        for mut playlist in library.playlists {
+            let before = playlist.track_ids.len();
+            playlist.track_ids.retain(|id| !removed_ids.contains(id));
+            if playlist.track_ids.len() != before {
+                transaction
+                    .execute(
+                        "UPDATE playlists SET data=?1 WHERE id=?2",
+                        params![
+                            serde_json::to_string(&playlist).map_err(|e| e.to_string())?,
+                            playlist.id
+                        ],
+                    )
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+        transaction.commit().map_err(|e| e.to_string())?;
+        drop(db);
+        self.load()
     }
     pub fn add_folder(&self, path: &str) -> Result<(), String> {
         self.0

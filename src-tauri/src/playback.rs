@@ -68,6 +68,7 @@ pub enum Message {
 pub struct AudioEngine {
     send: Sender<Message>,
     thread: Arc<Mutex<Option<std::thread::JoinHandle<()>>>>,
+    spectrum: Arc<crate::spectrum::SpectrumTap>,
 }
 impl AudioEngine {
     pub fn start(
@@ -80,6 +81,8 @@ impl AudioEngine {
         let system_send = send.clone();
         let audio_send = send.clone();
         let device_send = send.clone();
+        let spectrum = crate::spectrum::SpectrumTap::new();
+        let engine_spectrum = spectrum.clone();
         let thread = std::thread::Builder::new()
             .name("sonotune-audio".into())
             .spawn(move || {
@@ -108,8 +111,16 @@ impl AudioEngine {
                     starting_fade: false,
                     device_check: Instant::now(),
                     equalizer: Default::default(),
+                    limiter: std::sync::Arc::new(Mutex::new(crate::limiter::Settings::default())),
+                    spectrum: engine_spectrum,
+                    normalization: crate::loudness::Mode::Off,
+                    gain: None,
+                    bus: None,
                     next_slot: None,
                     preload_failed: None,
+                    sleep_deadline: None,
+                    sleep_after_track: false,
+                    sleep_fade_factor: 1.0,
                     media,
                     media_error,
                     media_track: None,
@@ -138,7 +149,11 @@ impl AudioEngine {
         Self {
             send,
             thread: Arc::new(Mutex::new(Some(thread))),
+            spectrum,
         }
+    }
+    pub fn spectrum(&self) -> [f32; crate::spectrum::BANDS] {
+        self.spectrum.read_bars()
     }
     pub fn shutdown(&self) {
         let _ = self.send.send(Message::Shutdown);
@@ -193,8 +208,16 @@ struct Engine {
     starting_fade: bool,
     device_check: Instant,
     equalizer: crate::equalizer::Shared,
+    limiter: crate::limiter::Shared,
+    spectrum: Arc<crate::spectrum::SpectrumTap>,
+    normalization: crate::loudness::Mode,
+    gain: Option<crate::gain::Shared>,
+    bus: Option<rodio::mixer::Mixer>,
     next_slot: Option<crate::gapless::NextSlot>,
     preload_failed: Option<String>,
+    sleep_deadline: Option<Instant>,
+    sleep_after_track: bool,
+    sleep_fade_factor: f32,
     media: Option<SystemMedia>,
     media_error: Option<String>,
     media_track: Option<Track>,
@@ -217,6 +240,15 @@ struct Engine {
 impl Engine {
     fn restore(&mut self) -> Result<(), String> {
         self.gapless = self.db.state::<bool>("gapless")?.unwrap_or(true);
+        self.normalization = self
+            .db
+            .state::<crate::loudness::Mode>("normalization")?
+            .unwrap_or_default();
+        if let Some(enabled) = self.db.state::<bool>("limiter")? {
+            if let Ok(mut settings) = self.limiter.lock() {
+                settings.enabled = enabled;
+            }
+        }
         let Some(saved) = self.db.state::<SavedPlayback>("playback")? else {
             return Ok(());
         };
@@ -397,6 +429,13 @@ impl Engine {
             }
             self.state.playing = !sink.is_paused();
         }
+        self.state.sleep_remaining = self
+            .sleep_deadline
+            .map(|deadline| deadline.saturating_duration_since(Instant::now()).as_secs());
+        self.state.sleep_after_track = self.sleep_after_track;
+        if !self.state.playing {
+            self.spectrum.clear();
+        }
         let stopped = self.pending_position.is_none() && self.sink.as_ref().is_none_or(Sink::empty);
         if self.media_track.is_some() {
             if let Some(error) = self.media_error.take() {
@@ -455,10 +494,14 @@ impl Engine {
         sink.set_volume(if self.starting_fade {
             0.0
         } else {
-            self.state.volume
+            self.state.volume * self.sleep_fade_factor
         });
+        let level = std::sync::Arc::new(Mutex::new(self.gain_db(&track)));
+        self.gain = Some(level.clone());
         // Keep a fixed format across boundaries, including mixed-rate albums.
-        sink.append(audio::normalized(decoder));
+        sink.append(audio::normalized(Box::new(crate::gain::Gain::new(
+            decoder, level,
+        ))));
         self.next_slot.take();
         self.recovering = false;
         self.preload_failed = None;
@@ -498,6 +541,8 @@ impl Engine {
         }
         self.fading.take();
         self.stream.take();
+        self.bus.take();
+        self.gain = None;
         self.sync_boundary();
         self.tick();
         let position = self
@@ -528,13 +573,8 @@ impl Engine {
     }
     fn create_sink(&mut self) -> Result<Sink, String> {
         #[cfg(test)]
-        if let Some(mixer) = &self.test_mixer {
-            let (sink, output) = Sink::new();
-            mixer.add(crate::equalizer::Equalized::new(
-                crate::gapless::FixedOutput(output),
-                self.equalizer.clone(),
-            ));
-            return Ok(sink);
+        if let Some(device) = &self.test_mixer {
+            return self.sink_on(device.clone());
         }
         if self.stream.is_none() {
             self.output_generation = self.output_generation.wrapping_add(1);
@@ -555,16 +595,77 @@ impl Engine {
                     .map_err(|e| format!("Не удалось открыть звуковое устройство: {e}"))?,
             );
         }
+        let device = self.stream.as_ref().unwrap().mixer().clone();
+        self.sink_on(device)
+    }
+    /// Every sink feeds one internal bus, so a single limiter protects the sum
+    /// of both sides of a crossfade instead of each side separately.
+    fn sink_on(&mut self, device: rodio::mixer::Mixer) -> Result<Sink, String> {
+        if self.bus.is_none() {
+            let (bus, output) = rodio::mixer::mixer(2, 48_000);
+            let limited = crate::limiter::Limiter::new(output, self.limiter.clone());
+            device.add(crate::spectrum::Tapped::new(limited, self.spectrum.clone()));
+            self.bus = Some(bus);
+        }
         let (sink, output) = Sink::new();
-        self.stream
+        self.bus
             .as_ref()
             .unwrap()
-            .mixer()
             .add(crate::equalizer::Equalized::new(
                 crate::gapless::FixedOutput(output),
                 self.equalizer.clone(),
             ));
         Ok(sink)
+    }
+    /// Stored level correction for one track under the active mode.
+    fn gain_db(&self, track: &Track) -> f64 {
+        match self.normalization {
+            crate::loudness::Mode::Off => 0.0,
+            crate::loudness::Mode::Track => self.track_gain_db(track),
+            crate::loudness::Mode::Album => {
+                if track.album.trim().is_empty() || track.album == "Без альбома" {
+                    return self.track_gain_db(track);
+                }
+                let rows = self
+                    .db
+                    .album_loudness(&crate::loudness::album_key(track))
+                    .unwrap_or_default();
+                if rows.is_empty() {
+                    self.track_gain_db(track)
+                } else {
+                    crate::loudness::album_gain(&rows).unwrap_or_else(|| self.track_gain_db(track))
+                }
+            }
+        }
+    }
+    fn track_gain_db(&self, track: &Track) -> f64 {
+        self.db
+            .loudness(&track.id)
+            .ok()
+            .flatten()
+            .filter(|row| row.modified == track.modified)
+            .map(|row| crate::loudness::track_gain(row.lufs, row.peak_db))
+            .unwrap_or(0.0)
+    }
+    /// Apply a freshly measured or recomputed level to the current and prepared tracks.
+    fn refresh_gain(&mut self) {
+        if let Some(id) = self.state.track_id.clone() {
+            if let Ok(track) = self.db.track(&id) {
+                let value = self.gain_db(&track);
+                if let Some(gain) = &self.gain {
+                    if let Ok(mut target) = gain.lock() {
+                        *target = value;
+                    }
+                }
+            }
+        }
+        if let Some(slot) = &self.next_slot {
+            if let Some(id) = slot.id() {
+                if let Ok(track) = self.db.track(&id) {
+                    slot.set_gain(self.gain_db(&track));
+                }
+            }
+        }
     }
     fn advance(&mut self, direction: i8, ended: bool) -> Result<(), String> {
         // A fade may still be running when the incoming track ends early (wrong
@@ -663,11 +764,13 @@ impl Engine {
                 | PlayerCommand::Mode { .. }
                 | PlayerCommand::Enqueue { .. }
                 | PlayerCommand::Remove { .. }
+                | PlayerCommand::Forget { .. }
                 | PlayerCommand::SelectQueue { .. }
                 | PlayerCommand::ReorderQueue { .. }
                 | PlayerCommand::RemoveQueue { .. }
                 | PlayerCommand::ClearNext
                 | PlayerCommand::Gapless { .. }
+                | PlayerCommand::SleepTimer { .. }
                 | PlayerCommand::RefreshMetadata
         ) {
             self.preload_failed = None;
@@ -678,7 +781,10 @@ impl Engine {
         }
         self.checkpoint_dirty |= !matches!(
             &command,
-            PlayerCommand::Snapshot | PlayerCommand::RefreshMetadata
+            PlayerCommand::Snapshot
+                | PlayerCommand::RefreshMetadata
+                | PlayerCommand::RefreshGain
+                | PlayerCommand::SleepTimer { .. }
         );
         if matches!(
             &command,
@@ -686,6 +792,8 @@ impl Engine {
                 | PlayerCommand::Step { .. }
                 | PlayerCommand::Seek { .. }
                 | PlayerCommand::Stop
+                | PlayerCommand::Remove { .. }
+                | PlayerCommand::Forget { .. }
                 | PlayerCommand::SelectQueue { .. }
                 | PlayerCommand::AudioSettings { .. }
         ) {
@@ -735,7 +843,13 @@ impl Engine {
                 self.next_slot.take();
                 self.pending_position = None;
                 self.sink.take();
+                self.bus.take();
+                self.gain = None;
                 self.stream.take();
+                self.sleep_deadline = None;
+                self.sleep_after_track = false;
+                self.sleep_fade_factor = 1.0;
+                self.spectrum.clear();
                 self.state.playing = false;
                 self.state.position = 0.0;
                 self.session = None;
@@ -775,7 +889,7 @@ impl Engine {
                 }
                 self.state.volume = value.clamp(0.0, 1.0);
                 if let Some(sink) = &self.sink {
-                    sink.set_volume(self.state.volume);
+                    sink.set_volume(self.state.volume * self.sleep_fade_factor);
                 }
             }
             PlayerCommand::Mode { shuffle, repeat } => {
@@ -818,6 +932,30 @@ impl Engine {
                     self.state.position = 0.0;
                     self.state.duration = 0.0;
                     self.session = None;
+                }
+            }
+            PlayerCommand::Forget { ids } => {
+                let removed: std::collections::HashSet<String> = ids.into_iter().collect();
+                self.state.queue.retain(|id| !removed.contains(id));
+                self.original_queue.retain(|id| !removed.contains(id));
+                if self
+                    .state
+                    .track_id
+                    .as_ref()
+                    .is_some_and(|id| removed.contains(id))
+                {
+                    self.next_slot.take();
+                    self.sink.take();
+                    self.gain = None;
+                    self.pending_position = None;
+                    self.state.track_id = None;
+                    self.state.playing = false;
+                    self.state.position = 0.0;
+                    self.state.duration = 0.0;
+                    self.session = None;
+                    self.media_track = None;
+                    self.media_dirty = true;
+                    self.checkpoint_force = true;
                 }
             }
             PlayerCommand::SelectQueue { id } => {
@@ -882,6 +1020,40 @@ impl Engine {
                 }
             }
             PlayerCommand::Snapshot => {}
+            PlayerCommand::RefreshGain => self.refresh_gain(),
+            PlayerCommand::Normalization { mode } => {
+                self.db.save_state("normalization", &mode)?;
+                self.normalization = mode;
+                self.refresh_gain();
+            }
+            PlayerCommand::Limiter { enabled } => {
+                self.db.save_state("limiter", &enabled)?;
+                if let Ok(mut settings) = self.limiter.lock() {
+                    settings.enabled = enabled;
+                }
+            }
+            PlayerCommand::SleepTimer {
+                minutes,
+                after_track,
+            } => {
+                self.sleep_fade_factor = 1.0;
+                if after_track {
+                    self.sleep_after_track = true;
+                    self.sleep_deadline = None;
+                } else if let Some(minutes) = minutes.filter(|&m| m > 0) {
+                    let clamped = minutes.min(1440) as u64;
+                    self.sleep_deadline = Some(Instant::now() + Duration::from_secs(clamped * 60));
+                    self.sleep_after_track = false;
+                } else {
+                    self.sleep_deadline = None;
+                    self.sleep_after_track = false;
+                }
+                if let Some(sink) = &self.sink {
+                    if self.fading.is_none() {
+                        sink.set_volume(self.state.volume);
+                    }
+                }
+            }
             PlayerCommand::Gapless { enabled } => {
                 self.db.save_state("gapless", &enabled)?;
                 self.gapless = enabled;
@@ -894,8 +1066,9 @@ impl Engine {
         let Some((claimed, started)) = self.next_slot.as_ref().map(|slot| slot.poll()) else {
             return;
         };
-        if let Some((track, duration)) = started {
+        if let Some((track, duration, gain)) = started {
             self.tick();
+            self.gain = Some(gain);
             self.state.track_id = Some(track.id.clone());
             self.state.duration = duration;
             self.state.position = 0.0;
@@ -910,7 +1083,11 @@ impl Engine {
         }
     }
     fn prepare_next(&mut self) {
-        if self.crossfade > 0.0 || !self.gapless || self.sink.as_ref().is_none_or(Sink::empty) {
+        if self.sleep_after_track
+            || self.crossfade > 0.0
+            || !self.gapless
+            || self.sink.as_ref().is_none_or(Sink::empty)
+        {
             return;
         }
         let index = self
@@ -947,7 +1124,8 @@ impl Engine {
                     events.error(format!("{title}: {error}"))
                 })),
             )?;
-            Ok::<_, String>(crate::gapless::Prepared::new(track, source))
+            let gain_db = self.gain_db(&track);
+            Ok::<_, String>(crate::gapless::Prepared::new(track, source, gain_db))
         })();
         // An unreadable future file is handled by the usual skip/error path at
         // the boundary, so an idle paused track does not repeatedly notify.
@@ -1042,6 +1220,17 @@ impl Engine {
                 .is_some_and(|sink| !sink.is_paused() && sink.empty())
         {
             self.state.position = self.state.duration;
+            if self.sleep_after_track {
+                self.sleep_after_track = false;
+                self.cancel_fade();
+                self.sink.take();
+                self.state.playing = false;
+                self.state.position = 0.0;
+                self.pending_position = Some(0.0);
+                self.checkpoint_force = true;
+                self.spectrum.clear();
+                return;
+            }
             if let Err(error) = self.advance(1, true) {
                 self.error(error);
             }
@@ -1070,22 +1259,50 @@ impl Engine {
     fn cancel_fade(&mut self) {
         self.fading.take();
         if let Some(sink) = &self.sink {
-            sink.set_volume(self.state.volume);
+            sink.set_volume(self.state.volume * self.sleep_fade_factor);
+        }
+    }
+    fn sleep_tick(&mut self) {
+        let Some(deadline) = self.sleep_deadline else {
+            return;
+        };
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            self.sleep_deadline = None;
+            self.sleep_fade_factor = 1.0;
+            self.fading.take();
+            if let Some(sink) = &self.sink {
+                sink.pause();
+                sink.set_volume(self.state.volume);
+            }
+            self.state.playing = false;
+            self.checkpoint_force = true;
+            self.spectrum.clear();
+            return;
+        }
+        if self.state.playing && remaining <= Duration::from_secs(10) {
+            self.sleep_fade_factor = (remaining.as_secs_f32() / 10.0).clamp(0.0, 1.0);
+            if self.fading.is_none() {
+                if let Some(sink) = &self.sink {
+                    sink.set_volume(self.state.volume * self.sleep_fade_factor);
+                }
+            }
         }
     }
     fn crossfade_tick(&mut self) {
+        let scale = self.state.volume * self.sleep_fade_factor;
         if let Some((tail, duration)) = &self.fading {
             if let Some(sink) = &self.sink {
                 let fraction = (sink.get_pos().as_secs_f64() / duration).clamp(0.0, 1.0) as f32;
-                sink.set_volume(self.state.volume * fraction);
-                tail.set_volume(self.state.volume * (1.0 - fraction));
+                sink.set_volume(scale * fraction);
+                tail.set_volume(scale * (1.0 - fraction));
                 if fraction >= 1.0 || tail.empty() {
                     self.cancel_fade();
                 }
             }
             return;
         }
-        if self.crossfade <= 0.0 {
+        if self.sleep_after_track || self.crossfade <= 0.0 {
             return;
         }
         let Some(sink) = &self.sink else {
@@ -1146,14 +1363,26 @@ impl Engine {
     }
     fn run(&mut self, receive: Receiver<Message>) {
         loop {
+            let sleep_fading = self.sleep_deadline.is_some_and(|d| {
+                d.saturating_duration_since(Instant::now()) <= Duration::from_secs(12)
+            });
             let wait = if self.state.playing {
-                Duration::from_millis(if self.crossfade > 0.0 { 15 } else { 250 })
+                Duration::from_millis(if self.crossfade > 0.0 {
+                    15
+                } else if sleep_fading {
+                    50
+                } else {
+                    250
+                })
+            } else if self.sleep_deadline.is_some() {
+                Duration::from_secs(1)
             } else {
                 Duration::from_secs(10)
             };
             let incoming = receive.recv_timeout(wait);
             self.tick();
             self.sync_boundary();
+            self.sleep_tick();
             if self.device_check.elapsed() >= Duration::from_secs(1) {
                 self.device_check = Instant::now();
                 if let Some(id) = &self.output_device {
@@ -1188,6 +1417,7 @@ impl Engine {
                         &command,
                         PlayerCommand::Volume { .. }
                             | PlayerCommand::Snapshot
+                            | PlayerCommand::RefreshGain
                             | PlayerCommand::RefreshMetadata
                             | PlayerCommand::Seek { .. }
                     );
@@ -1223,7 +1453,11 @@ impl Engine {
                     self.crossfade_tick();
                     self.finish_ended();
                     self.prepare_next();
-                    if self.state.playing || self.sink.as_ref().is_some_and(Sink::empty) {
+                    if self.state.playing
+                        || self.sleep_deadline.is_some()
+                        || self.state.sleep_remaining.is_some()
+                        || self.sink.as_ref().is_some_and(Sink::empty)
+                    {
                         self.emit();
                     }
                 }
@@ -1348,8 +1582,20 @@ mod tests {
                 starting_fade: false,
                 device_check: Instant::now(),
                 equalizer: Default::default(),
+                limiter: std::sync::Arc::new(Mutex::new(crate::limiter::Settings {
+                    // Exact sample comparisons below use the unmodified chain.
+                    enabled: false,
+                    ..crate::limiter::Settings::default()
+                })),
+                spectrum: crate::spectrum::SpectrumTap::new(),
+                normalization: crate::loudness::Mode::Off,
+                gain: None,
+                bus: None,
                 next_slot: None,
                 preload_failed: None,
+                sleep_deadline: None,
+                sleep_after_track: false,
+                sleep_fade_factor: 1.0,
                 events: events.clone(),
                 test_mixer: Some(mixer),
                 media: None,
@@ -1983,5 +2229,84 @@ mod tests {
             next_index(3, Some(2), 1, false, &Repeat::None, true, 0),
             None
         );
+    }
+    #[test]
+    fn normalization_uses_the_stored_level_and_can_change_while_playing() {
+        let mut h = Harness::new();
+        let track = h.engine.db.track(&h.ids[0]).unwrap();
+        // -23 LUFS at a low peak asks for +5 dB without hitting the peak cap.
+        let row = crate::loudness::Row::measured(&track, -23.0, -6.0);
+        h.engine.db.save_loudness(&track.id, &row).unwrap();
+        h.command(PlayerCommand::Normalization {
+            mode: crate::loudness::Mode::Track,
+        });
+        h.start(0, Repeat::None);
+        let gain = *h.engine.gain.as_ref().unwrap().lock().unwrap();
+        assert!((gain - 5.0).abs() < 1e-6, "gain {gain}");
+        h.command(PlayerCommand::Normalization {
+            mode: crate::loudness::Mode::Off,
+        });
+        assert_eq!(*h.engine.gain.as_ref().unwrap().lock().unwrap(), 0.0);
+        // The prepared next track adopts the same mode without being reloaded.
+        h.command(PlayerCommand::Normalization {
+            mode: crate::loudness::Mode::Track,
+        });
+        // A measurement that arrives while the song plays is picked up in place.
+        h.engine
+            .db
+            .save_loudness(
+                &track.id,
+                &crate::loudness::Row::measured(&track, -20.0, -6.0),
+            )
+            .unwrap();
+        h.command(PlayerCommand::RefreshGain);
+        let gain = *h.engine.gain.as_ref().unwrap().lock().unwrap();
+        assert!((gain - 2.0).abs() < 1e-6, "gain {gain}");
+    }
+    #[test]
+    fn one_limiter_sits_between_every_sink_and_the_device() {
+        let mut h = Harness::new();
+        assert!(h.engine.bus.is_none());
+        h.start(0, Repeat::None);
+        assert!(h.engine.bus.is_some());
+        // Enabling protection introduces the look-ahead priming silence once.
+        h.engine.limiter.lock().unwrap().enabled = true;
+        let samples: Vec<f32> = (0..2000).map(|_| h.output.next().unwrap()).collect();
+        assert!(samples[..400].iter().all(|value| value.abs() < 1e-6));
+        assert!(samples[..].iter().all(|value| value.is_finite()));
+        // A stop releases the bus so the next sink rebuilds it with the device.
+        h.command(PlayerCommand::Stop);
+        assert!(h.engine.bus.is_none());
+    }
+    #[test]
+    fn sleep_timer_stops_after_track_and_fades_on_deadline() {
+        let mut h = Harness::new();
+        h.engine.gapless = true;
+        h.start(0, Repeat::All);
+        h.command(PlayerCommand::SleepTimer {
+            minutes: None,
+            after_track: true,
+        });
+        assert!(h.engine.state.sleep_after_track);
+        assert!(h.engine.next_slot.as_ref().and_then(|s| s.id()).is_none());
+        h.drain();
+        h.engine.finish_ended();
+        h.engine.emit();
+        assert_eq!(h.engine.state.track_id.as_deref(), Some(h.ids[0].as_str()));
+        assert!(!h.engine.state.playing);
+        assert!(!h.engine.state.sleep_after_track);
+
+        h.start(0, Repeat::None);
+        h.command(PlayerCommand::Volume { value: 0.8 });
+        h.engine.sleep_deadline = Some(Instant::now() + Duration::from_secs(5));
+        h.engine.sleep_tick();
+        assert!(h.engine.sleep_fade_factor < 0.6 && h.engine.sleep_fade_factor > 0.3);
+        h.engine.sleep_deadline = Some(Instant::now() - Duration::from_secs(1));
+        h.engine.sleep_tick();
+        h.engine.emit();
+        assert!(!h.engine.state.playing);
+        assert!(h.engine.state.sleep_remaining.is_none());
+        assert_eq!(h.engine.sleep_fade_factor, 1.0);
+        assert!((h.engine.sink.as_ref().unwrap().volume() - 0.8).abs() < 1e-5);
     }
 }

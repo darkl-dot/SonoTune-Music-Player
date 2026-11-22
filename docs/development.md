@@ -42,6 +42,8 @@ See [verification notes](../VERIFICATION.md) for what was tested and its limits,
 Portable packaging is described in [the release guide](releasing.md).
 Native gapless behavior and codec boundaries are described in [the format notes](gapless-and-formats.md).
 Tray, startup, file opening, and device recovery are described in [desktop integration](desktop-integration.md).
+Volume leveling, loudness measurement, and the output limiter are described in
+[leveling and protection](loudness-and-protection.md).
 
 ## Project structure
 

@@ -139,6 +139,38 @@ fn tag_values(tag: Option<&Tag>, key: ItemKey) -> Vec<String> {
     })
     .unwrap_or_default()
 }
+fn number(value: &str) -> Option<f64> {
+    let token = value
+        .split_whitespace()
+        .next()?
+        .trim_end_matches(|c: char| c.is_alphabetic())
+        .replace(',', ".");
+    token.parse::<f64>().ok().filter(|value| value.is_finite())
+}
+/// ReplayGain gains are stored with a unit, for example "-7.50 dB".
+fn tag_gain(tag: Option<&Tag>, key: ItemKey) -> Option<f64> {
+    tag.and_then(|tag| tag.get_string(key)).and_then(number)
+}
+/// ReplayGain peaks are linear ratios, but some taggers write decibels.
+fn tag_peak(tag: Option<&Tag>, key: ItemKey) -> Option<f64> {
+    let value = tag.and_then(|tag| tag.get_string(key))?.to_lowercase();
+    let parsed = number(&value)?;
+    if value.contains("db") {
+        Some(parsed)
+    } else if parsed > 0.0 {
+        Some(20.0 * parsed.log10())
+    } else {
+        None
+    }
+}
+fn gain_tags(tag: Option<&Tag>) -> crate::loudness::Tags {
+    crate::loudness::Tags {
+        track_gain_db: tag_gain(tag, ItemKey::ReplayGainTrackGain),
+        track_peak_db: tag_peak(tag, ItemKey::ReplayGainTrackPeak),
+        album_gain_db: tag_gain(tag, ItemKey::ReplayGainAlbumGain),
+        album_peak_db: tag_peak(tag, ItemKey::ReplayGainAlbumPeak),
+    }
+}
 pub fn file_stamp(path: &Path) -> Result<(u64, u64), String> {
     let metadata = fs::metadata(path).map_err(|e| e.to_string())?;
     let modified = metadata
@@ -155,6 +187,14 @@ pub fn read_track(
     data_dir: &Path,
     demo: bool,
 ) -> Result<Track, String> {
+    read_track_with_gain(path, previous, data_dir, demo).map(|(track, _)| track)
+}
+pub fn read_track_with_gain(
+    path: &Path,
+    previous: Option<&Track>,
+    data_dir: &Path,
+    demo: bool,
+) -> Result<(Track, crate::loudness::Tags), String> {
     let (size, modified) = file_stamp(path)?;
     let id = previous
         .map(|t| t.id.clone())
@@ -229,7 +269,7 @@ pub fn read_track(
             });
         }
     }
-    Ok(track)
+    Ok((track, gain_tags(tag)))
 }
 
 fn atomic_json(path: &Path, draft: &TagDraft) -> Result<(), String> {

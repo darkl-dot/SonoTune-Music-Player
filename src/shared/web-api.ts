@@ -425,7 +425,169 @@ export const webApi: SonoApi = {
   deletePlaylist: async (id) => {
     await (await database).delete('playlists', id);
   },
-  configureScan: async () => {},
+  exportPlaylist: async (id) => {
+    const lib = await load();
+    const playlist = lib.playlists.find((p) => p.id === id);
+    if (!playlist) return false;
+    const byId = new Map(lib.tracks.map((tr) => [tr.id, tr]));
+    const lines = ['#EXTM3U', `#PLAYLIST:${playlist.name}`];
+    for (const trackId of playlist.trackIds) {
+      const track = byId.get(trackId);
+      if (!track) continue;
+      lines.push(
+        `#EXTINF:${Math.round(track.duration)},${track.artists.join(', ') || 'Unknown Artist'} - ${track.title}`,
+      );
+      lines.push(track.path);
+    }
+    const blob = new Blob([lines.join('\n') + '\n'], { type: 'audio/x-mpegurl;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${playlist.name || 'playlist'}.m3u8`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return true;
+  },
+  importPlaylist: async () => {
+    const file = await new Promise<File | null>((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.m3u,.m3u8';
+      input.onchange = () => resolve(input.files?.[0] ?? null);
+      input.oncancel = () => resolve(null);
+      input.click();
+    });
+    if (!file) return null;
+    const text = (await file.text()).replace(/^\uFEFF/, '');
+    let name = file.name.replace(/\.m3u8?$/i, '') || t('Новый плейлист');
+    const entries: string[] = [];
+    for (const raw of text.split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line) continue;
+      if (line.startsWith('#PLAYLIST:')) {
+        const value = line.slice(10).trim();
+        if (value) name = value.slice(0, 100);
+        continue;
+      }
+      if (!line.startsWith('#')) entries.push(line);
+    }
+    const lib = await load();
+    const trackIds: string[] = [];
+    let skipped = 0;
+    for (const entry of entries) {
+      const lower = entry.replace(/\\/g, '/').toLowerCase();
+      const base = lower.split('/').pop() ?? lower;
+      const match = lib.tracks.find((tr) => {
+        const p = tr.path.replace(/\\/g, '/').toLowerCase();
+        return p === lower || p.endsWith('/' + base);
+      });
+      if (match && !trackIds.includes(match.id)) trackIds.push(match.id);
+      else if (!match) skipped++;
+    }
+    const playlist = {
+      id: crypto.randomUUID(),
+      name,
+      trackIds,
+      createdAt: Date.now(),
+      artwork: null,
+    };
+    await (await database).put('playlists', playlist);
+    return { library: await load(), playlist, skipped };
+  },
+  removeTracks: async (ids) => {
+    if (!ids.length) return load();
+    const idSet = new Set(ids);
+    if (state.trackId && idSet.has(state.trackId)) {
+      tickListening();
+      listeningActive = false;
+      session = null;
+      generation++;
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+      if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+      sourceUrl = null;
+      pendingPosition = null;
+      state = { ...state, trackId: null, playing: false, position: 0, duration: 0 };
+    }
+    state.queue = state.queue.filter((id) => !idSet.has(id));
+    originalQueue = originalQueue.filter((id) => !idSet.has(id));
+    emit();
+    await statsWrites;
+    const db = await database;
+    const tx = db.transaction(['tracks', 'audio', 'playlists', 'listening', 'pins'], 'readwrite');
+    for (const id of ids) {
+      await tx.objectStore('tracks').delete(id);
+      await tx.objectStore('audio').delete(id);
+      await tx.objectStore('listening').delete(id);
+      await tx.objectStore('pins').delete(id);
+    }
+    for (const playlist of await tx.objectStore('playlists').getAll())
+      await tx.objectStore('playlists').put({
+        ...playlist,
+        trackIds: playlist.trackIds.filter((id: string) => !idSet.has(id)),
+      });
+    await tx.done;
+    return load();
+  },
+  sleepTimer: async (minutes, afterTrack) => {
+    state = {
+      ...state,
+      sleepAfterTrack: afterTrack,
+      sleepRemaining: !afterTrack && minutes && minutes > 0 ? minutes * 60 : null,
+    };
+    emit();
+  },
+  audioSpectrum: async () => [],
+  removeFolder: async (path) => {
+    const prefix = path.endsWith('/') ? path : `${path}/`;
+    const db = await database;
+    const tracks = await db.getAll('tracks');
+    const ids = tracks
+      .filter((track) => track.path === path || track.path.startsWith(prefix))
+      .map((track) => track.id);
+    if (state.trackId && ids.includes(state.trackId)) {
+      tickListening();
+      listeningActive = false;
+      session = null;
+      generation++;
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+      if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+      sourceUrl = null;
+      pendingPosition = null;
+      state = { ...state, trackId: null, playing: false, position: 0, duration: 0 };
+    }
+    state.queue = state.queue.filter((id) => !ids.includes(id));
+    originalQueue = originalQueue.filter((id) => !ids.includes(id));
+    emit();
+    await statsWrites;
+    const folders: string[] = (await db.get('settings', 'folders')) ?? [];
+    await db.put(
+      'settings',
+      folders.filter((folder) => folder !== path),
+      'folders',
+    );
+    const tx = db.transaction(['tracks', 'audio', 'playlists', 'listening', 'pins'], 'readwrite');
+    for (const id of ids) {
+      await tx.objectStore('tracks').delete(id);
+      await tx.objectStore('audio').delete(id);
+      await tx.objectStore('listening').delete(id);
+      await tx.objectStore('pins').delete(id);
+    }
+    for (const playlist of await tx.objectStore('playlists').getAll())
+      await tx.objectStore('playlists').put({
+        ...playlist,
+        trackIds: playlist.trackIds.filter((id: string) => !ids.includes(id)),
+      });
+    await tx.done;
+    return load();
+  },
+  configureNormalization: async () => {},
+  configureLimiter: async () => {},
+  loudnessStats: async () => [0, 0],
+  recomputeLoudness: async () => {},
   configureGapless: async () => {},
   audioOutputs: async () => [],
   configureAudio: async () => {},

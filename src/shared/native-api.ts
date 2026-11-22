@@ -3,6 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import type { SonoApi } from './api';
 import { t } from './i18n';
 import type {
+  ImportPlaylistResult,
   Library,
   ListeningUpdate,
   ScanProgress,
@@ -34,9 +35,29 @@ export const nativeApi: SonoApi = {
   loadDemo: async () => library(await invoke('load_demo')),
   savePlaylist: (playlist) => invoke('save_playlist', { playlist }),
   deletePlaylist: (id) => invoke('delete_playlist', { id }),
+  exportPlaylist: (id) => invoke<boolean>('export_playlist', { id, title: t('Экспорт плейлиста') }),
+  importPlaylist: async () => {
+    const result = await invoke<ImportPlaylistResult | null>('import_playlist', {
+      title: t('Импорт плейлиста'),
+    });
+    return result ? { ...result, library: library(result.library) } : null;
+  },
+  removeFolder: async (path) => library(await invoke('remove_folder', { path })),
+  removeTracks: async (ids) => library(await invoke('remove_tracks', { ids })),
+  revealTrack: (id) => invoke('reveal_track', { id }),
   savePin: (id, label) => invoke('save_pin', { id, label }),
   deletePin: (id) => invoke('delete_pin', { id }),
-  configureScan: (minutes) => invoke('configure_scan', { minutes }),
+  configureNormalization: (mode) =>
+    invoke('player_command', { command: { kind: 'normalization', mode } }),
+  configureLimiter: (enabled) =>
+    invoke('player_command', { command: { kind: 'limiter', enabled } }),
+  sleepTimer: (minutes, afterTrack) =>
+    invoke('player_command', {
+      command: { kind: 'sleeptimer', minutes, after_track: afterTrack },
+    }),
+  audioSpectrum: () => invoke<number[]>('audio_spectrum'),
+  loudnessStats: () => invoke('loudness_stats'),
+  recomputeLoudness: () => invoke('recompute_loudness'),
   configureEqualizer: (value) =>
     invoke('player_command', { command: { kind: 'equalizer', value } }),
   audioOutputs: () => invoke('audio_outputs'),

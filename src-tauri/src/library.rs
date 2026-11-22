@@ -37,6 +37,7 @@ pub fn scan(
         cancelled: false,
     };
     let mut batch = Vec::with_capacity(32);
+    let mut gain_rows: Vec<(String, crate::loudness::Row)> = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for root in roots {
         if cancel.load(Ordering::Relaxed) {
@@ -85,8 +86,13 @@ pub fn scan(
                     continue;
                 }
             }
-            let track = match metadata::read_track(&path, previous, data_dir, demo) {
-                Ok(track) => track,
+            let track = match metadata::read_track_with_gain(&path, previous, data_dir, demo) {
+                Ok((track, tags)) => {
+                    if let Some(row) = crate::loudness::Row::from_tags(&track, &tags) {
+                        gain_rows.push((track.id.clone(), row));
+                    }
+                    track
+                }
                 Err(_) => {
                     status.errors += 1;
                     let (size, modified) = stamp.unwrap_or_default();
@@ -128,6 +134,10 @@ pub fn scan(
             status.imported += 1;
             if batch.len() >= 32 {
                 db.upsert_batch(&batch)?;
+                for (id, row) in gain_rows.drain(..) {
+                    // A file that was just rewritten invalidates the previous row.
+                    let _ = db.save_loudness(&id, &row);
+                }
                 batch.clear();
             }
             if status.scanned % 8 == 0 {
@@ -138,6 +148,9 @@ pub fn scan(
         }
     }
     db.upsert_batch(&batch)?;
+    for (id, row) in gain_rows.drain(..) {
+        let _ = db.save_loudness(&id, &row);
+    }
     // Missing files remain in playlists and can become available again later.
     if !status.cancelled {
         let missing: Vec<_> = before

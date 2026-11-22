@@ -1,4 +1,5 @@
 import type {
+  ImportPlaylistResult,
   Library,
   ListeningUpdate,
   Playback,
@@ -18,10 +19,20 @@ export interface SonoApi {
   loadDemo(): Promise<Library>;
   savePlaylist(playlist: Playlist): Promise<void>;
   deletePlaylist(id: string): Promise<void>;
+  exportPlaylist?(id: string): Promise<boolean>;
+  importPlaylist?(): Promise<ImportPlaylistResult | null>;
+  removeFolder(path: string): Promise<Library>;
+  removeTracks?(ids: string[]): Promise<Library>;
+  revealTrack?(id: string): Promise<void>;
   savePin(id: string, label: string): Promise<void>;
   deletePin(id: string): Promise<void>;
-  configureScan(minutes: number | null): Promise<void>;
   configureGapless(enabled: boolean): Promise<void>;
+  configureNormalization(mode: 'off' | 'track' | 'album'): Promise<void>;
+  configureLimiter(enabled: boolean): Promise<void>;
+  sleepTimer?(minutes: number | null, afterTrack: boolean): Promise<void>;
+  audioSpectrum?(): Promise<number[]>;
+  loudnessStats(): Promise<[number, number]>;
+  recomputeLoudness(): Promise<void>;
   audioOutputs(): Promise<{ id: string; name: string }[]>;
   configureAudio(crossfade: number, device: string | null): Promise<void>;
   configureEqualizer(value: import('./equalizer').EqualizerSettings): Promise<void>;
