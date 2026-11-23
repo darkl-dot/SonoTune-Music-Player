@@ -18,17 +18,23 @@
 <p align="center">
   <img src="docs/assets/home-lilac.png" alt="SonoTune Home in a dark lilac palette, with listening cards and the wavy playback bar" width="840" />
   <br />
-  <sub>Home · lilac palette. Screenshots were captured before the v1 wording update.</sub>
+  <sub>Home · dark lilac palette (v1.1.6).</sub>
 </p>
 
 <details>
-  <summary>See the warm palette</summary>
+  <summary>See the warm adaptive palette</summary>
   <p align="center">
-    <img src="docs/assets/home-warm.png" alt="SonoTune Home in a warm dark palette, with album cards and active playback" width="840" />
+    <img src="docs/assets/home-warm.png" alt="SonoTune Home in a warm dark adaptive palette, with album cards and active playback" width="840" />
     <br />
-    <sub>The same Home page with a warm palette. Both screenshots use dark appearance.</sub>
+    <sub>The same Home page with adaptive colors extracted from the current artwork.</sub>
   </p>
 </details>
+
+<p align="center">
+  <img src="docs/assets/mini-player.png" alt="SonoTune always-on-top Mini Player with centered artwork, hover playback controls, and live visualizer" width="420" />
+  <br />
+  <sub>Always-on-top Mini Player with ambient artwork glow, hover controls, and a live 32-band visualizer.</sub>
+</p>
 
 ## Play your music
 
